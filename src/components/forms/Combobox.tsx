@@ -1,7 +1,7 @@
 "use client";
 
 import { Combobox as ComboboxPrimitive } from "@base-ui/react";
-import { CheckIcon, ChevronDownIcon, XIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, type LucideIcon, XIcon } from "lucide-react";
 import * as React from "react";
 
 import { Button } from "@/components/elements/Button";
@@ -19,14 +19,30 @@ function ComboboxValue({ ...props }: ComboboxPrimitive.Value.Props) {
   return <ComboboxPrimitive.Value data-slot="combobox-value" {...props} />;
 }
 
-function ComboboxTrigger({ className, children, ...props }: ComboboxPrimitive.Trigger.Props) {
+function ComboboxTrigger({
+  className,
+  children,
+  icon: Icon = ChevronDownIcon,
+  ...props
+}: ComboboxPrimitive.Trigger.Props & {
+  /**
+   * The glyph the disclosure button draws
+   *
+   * A component rather than a node, so the class that makes the glyph click-through and
+   * tone-matched stays here: a node handed in without `pointer-events-none` swallows the
+   * press that is meant to open the list
+   *
+   * @default ChevronDownIcon
+   */
+  icon?: LucideIcon;
+}) {
   return (
     <ComboboxPrimitive.Trigger
       data-slot="combobox-trigger"
       className={cn("[&_svg:not([class*='size-'])]:size-4", className)}
       {...props}>
       {children}
-      <ChevronDownIcon className="pointer-events-none size-4 text-muted-foreground" />
+      <Icon className="pointer-events-none size-4 text-muted-foreground" />
     </ComboboxPrimitive.Trigger>
   );
 }
@@ -53,10 +69,13 @@ function ComboboxInput({
   disabled = false,
   showTrigger = true,
   showClear = false,
+  triggerIcon,
   ...props
 }: ComboboxPrimitive.Input.Props & {
   showTrigger?: boolean;
   showClear?: boolean;
+  /** Handed to the disclosure button. Omit and it draws the chevron */
+  triggerIcon?: LucideIcon;
 }) {
   return (
     <InputGroup className={cn("w-auto", className)}>
@@ -66,10 +85,14 @@ function ComboboxInput({
           <InputGroupButton
             size="icon-xs"
             variant="ghost"
-            // Icon-only disclosure button; without a label it reads as an
-            // unnamed control to screen readers
+            /*
+             * Icon-only disclosure button; without a label it reads as an unnamed control
+             * to screen readers. The name stays put when a consumer swaps the glyph: the
+             * button still opens the list, and a name describes what pressing it does
+             * rather than what it looks like
+             */
             aria-label="Show suggestions"
-            render={<ComboboxTrigger />}
+            render={<ComboboxTrigger icon={triggerIcon} />}
             data-slot="input-group-button"
             className="group-has-data-[slot=combobox-clear]/input-group:hidden data-pressed:bg-transparent"
             disabled={disabled}
