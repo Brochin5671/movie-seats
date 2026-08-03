@@ -38,7 +38,7 @@ export const pageMeta = {
  * twitter:site and :creator tags rather than emitting empty ones
  */
 export const siteSeo = {
-  tagline: "Plan your movie experience!",
+  tagline: "Plan Your Movie Experience!",
   locale: "en_US",
   twitterHandle: "",
   ogImage: { width: 1200, height: 630, type: "image/png" },
