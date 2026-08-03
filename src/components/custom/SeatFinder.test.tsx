@@ -191,6 +191,42 @@ describe("SeatFinder", () => {
     for (const glyph of glyphs) expect(glyph).toContain("lucide-search");
   });
 
+  /*
+   * The placeholders are the only copy on the page telling a first-time reader what to do:
+   * the `h1` is screen-reader-only and there is no other prose. Two cases, because the
+   * showtime placeholder has four branches and only one of them is reachable at boot
+   */
+  it("says what to do with each select at boot", async () => {
+    render(<SeatFinder />);
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Theatres" })).toBeEnabled());
+
+    expect(screen.getByRole("combobox", { name: "Theatres" })).toHaveAttribute(
+      "placeholder",
+      "Pick a theatre",
+    );
+    expect(screen.getByRole("combobox", { name: "Movies" })).toHaveAttribute(
+      "placeholder",
+      "Pick a movie",
+    );
+    // The showtime select is disabled here, so it names the thing standing in the way
+    expect(screen.getByRole("combobox", { name: "Showtimes" })).toHaveAttribute(
+      "placeholder",
+      "Pick a theatre and a movie first",
+    );
+  });
+
+  it("says what to do with the showtime select once it has something to offer", async () => {
+    const user = userEvent.setup();
+    api.showtimes.mockResolvedValue([aShowtime]);
+    render(<SeatFinder />);
+    await pick(user, "Theatres", "Galaxy Barrie");
+    await pick(user, "Movies", "Spider-Man");
+
+    const showtimes = screen.getByRole("combobox", { name: "Showtimes" });
+    await waitFor(() => expect(showtimes).toBeEnabled());
+    expect(showtimes).toHaveAttribute("placeholder", "Pick a showtime, or search by date");
+  });
+
   it("narrows the movie list to what plays at the chosen theatre", async () => {
     const user = userEvent.setup();
     render(<SeatFinder />);
