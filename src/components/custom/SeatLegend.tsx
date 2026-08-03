@@ -113,18 +113,31 @@ export function SeatLegend({ map, recommended, className }: SeatLegendProps) {
           );
         }
         return (
-          <Badge key={key} variant="ghost" className="gap-1.5 text-cinema-parchment">
+          /*
+           * `h-8` on this one entry, and only this one. `Badge` is `h-5` with a transparent
+           * border, so it clips at an 18px padding box, and an overflow clip takes the
+           * clipped strip out of hit testing as well as out of paint: a 28px trigger inside
+           * an unchanged badge would report a box it does not own. The other entries are
+           * `aria-hidden` colour keys with nothing to press, so they stay at `h-5`
+           */
+          <Badge key={key} variant="ghost" className="h-8 gap-1.5 text-cinema-parchment">
             {swatch}
             {label}
             <Popover>
               {/*
                * A popover rather than a tooltip: a tooltip opens on hover and focus, and neither
                * happens on a phone. The button carries its own name, since a bare "?" reads as nothing
+               *
+               * 28 x 28: 6px either side of a 16px glyph. This was 22, which SC 2.5.8's
+               * spacing exception was carrying rather than the size itself, since it is the
+               * only target on the bar and the nearest other one is the booking link on the
+               * card above. Sized past the 24 floor so the conformance no longer depends on
+               * nothing else ever landing beside it
                */}
               <PopoverTrigger
                 aria-label="What makes a seat recommended?"
-                className="-mr-1 ml-0.5 rounded-full p-1 text-cinema-tan hover:text-cinema-parchment focus-visible:focus-outline focus-visible:outline-cinema-tan">
-                <CircleQuestionMark className="size-3.5" />
+                className="-mr-1 ml-0.5 rounded-full p-1.5 text-cinema-tan hover:text-cinema-parchment focus-visible:focus-outline focus-visible:outline-cinema-tan">
+                <CircleQuestionMark className="size-4" />
               </PopoverTrigger>
               <PopoverContent className="max-w-64">
                 <PopoverDescription>
