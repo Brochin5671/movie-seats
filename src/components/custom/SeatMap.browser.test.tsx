@@ -62,6 +62,31 @@ test("the legend paints the ink surface from the palette token", async () => {
 });
 
 /*
+ * The one control on the legend bar is a target you can actually hit
+ *
+ * SC 2.5.8 puts the floor at 24 x 24. This was 22, carried only by the spacing exception,
+ * and nothing in any tier measured it. The box alone is not enough either: `Badge` is
+ * `overflow-hidden` around an 18px padding box at its default height, and an overflow clip
+ * removes the clipped strip from hit testing, so a bigger button inside an unchanged badge
+ * reports a box it does not own
+ */
+test("the legend's explainer is a target big enough to press", async () => {
+  await page.viewport(DESKTOP.width, DESKTOP.height);
+  const screen = await render(<Legend map={paletteHouse()} />);
+  const trigger = screen.container.querySelector("button") as HTMLElement;
+  await expect.element(screen.getByRole("button", { name: /recommended/i })).toBeVisible();
+
+  // 6px either side of a 16px glyph
+  const box = trigger.getBoundingClientRect();
+  expect(box.width).toBe(28);
+  expect(box.height).toBe(28);
+
+  // ...and the bottom edge of that box belongs to the button, not to whatever clipped it
+  const hit = document.elementFromPoint(box.left + box.width / 2, box.bottom - 2);
+  expect(trigger.contains(hit)).toBe(true);
+});
+
+/*
  * The cell is 20px around a 14px glyph, and both numbers are exact rather than floors
  *
  * Not a tap target. The seat is a `role="img"` span with no handler and no tabindex, so
