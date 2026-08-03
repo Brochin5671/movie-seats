@@ -183,13 +183,19 @@ export function SeatMap({ map, recommended, className }: SeatMapProps) {
        * A named `section` rather than a div with `role="group"`: an unnamed region is dropped
        * from the accessibility tree entirely. `tabIndex` is what makes the scroller reachable,
        * since one that cannot take focus needs a pointer
+       *
+       * Colour on the scrollbar, and nothing else. Unnamed, its tones are whatever the
+       * platform picks against `color-scheme: dark`, which on this near-black surface is a
+       * grey the reader can miss, so a house wider than the column reads as cut off. The
+       * browser test carries the contrast measurement and the reasoning for leaving the
+       * size alone
        */}
       <section
         // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region has to be keyboard-reachable, or its content is unreachable without a pointer
         tabIndex={0}
         aria-label="Seat map, screen at the top"
         data-slot="seat-scroller"
-        className="overflow-x-auto focus-visible:focus-outline focus-visible:outline-cinema-tan">
+        className="overflow-x-auto scrollbar-track-cinema-ink scrollbar-thumb-cinema-tan focus-visible:focus-outline focus-visible:outline-cinema-tan">
         {/* w-max so the rows keep their true width and the parent scrolls to reach them */}
         <div className="flex w-max min-w-full flex-col items-center gap-px">
           {map.rows.map((row, index) =>

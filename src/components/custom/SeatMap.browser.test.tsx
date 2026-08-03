@@ -81,8 +81,14 @@ test("the legend's explainer is a target big enough to press", async () => {
   expect(box.width).toBe(28);
   expect(box.height).toBe(28);
 
-  // ...and the bottom edge of that box belongs to the button, not to whatever clipped it
-  const hit = document.elementFromPoint(box.left + box.width / 2, box.bottom - 2);
+  /*
+   * ...and the bottom edge of that box belongs to the button, not to whatever clipped it
+   *
+   * Half a pixel in, not two: probed at `bottom - 2` a badge one quarter-step short
+   * (`h-7`, clipping 1px either side) still answered with the button, so the assertion
+   * passed over a clip it is there to catch
+   */
+  const hit = document.elementFromPoint(box.left + box.width / 2, box.bottom - 0.5);
   expect(trigger.contains(hit)).toBe(true);
 });
 
@@ -140,6 +146,94 @@ test("a wide house overflows the scroller instead of the viewport", async () => 
   // the grid track is fixed at 1.25rem precisely so a column cannot shrink under pressure
   const seat = scroller.querySelector('[data-slot="seat"]') as HTMLElement;
   expect(seat.getBoundingClientRect().width).toBe(20);
+});
+
+/*
+ * ...and both ends of the house are reachable
+ *
+ * The case above proves there is somewhere to scroll, not that anything arrives. Both edges,
+ * because the right one is nearly a CSSOM identity after a maximum scroll while the left is
+ * where the reachable failure lives: drop `w-max` and `items-center` centres a 545px row in
+ * a 340px column, so the first seats sit at negative x, `scrollLeft` clamps at 0, and they
+ * cannot be reached by pointer, keyboard or touch. Every other case in this file stays green
+ * through that
+ */
+test("a wide house is reachable at both ends", async () => {
+  await page.viewport(360, 720);
+  const screen = await render(
+    <div style={{ width: "340px", display: "flex", flexDirection: "column" }}>
+      <Seats map={house(2, 26, 26)} />
+    </div>,
+  );
+  const scroller = screen.container.querySelector('[data-slot="seat-scroller"]') as HTMLElement;
+  await expect.element(screen.getByRole("region", { name: /seat map/i })).toBeVisible();
+
+  const seats = [...scroller.querySelectorAll('[data-slot="seat"]')] as HTMLElement[];
+  const first = seats[0] as HTMLElement;
+  const last = seats.at(-1) as HTMLElement;
+  // the premise: the house does not fit, or reaching its ends is not an achievement
+  expect(last.getBoundingClientRect().right).toBeGreaterThan(
+    scroller.getBoundingClientRect().right,
+  );
+
+  // unscrolled, the first seat is already inside: nothing sits to the left of scroll zero
+  expect(first.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+    scroller.getBoundingClientRect().left,
+  );
+
+  scroller.scrollLeft = scroller.scrollWidth - scroller.clientWidth;
+  expect(last.getBoundingClientRect().right).toBeLessThanOrEqual(
+    scroller.getBoundingClientRect().right,
+  );
+});
+
+/*
+ * The scrollbar is a control boundary, not decoration
+ *
+ * Unnamed it takes the platform's tones against `color-scheme: dark`, which on this
+ * near-black surface is a grey the reader can miss. There is no axe rule for non-text
+ * contrast, and once the author sets `scrollbar-color` the "determined by the user agent"
+ * exception in SC 1.4.11 is spent, so the 3:1 floor applies here the way it applies to a
+ * seat glyph. Thumb against track, because the track is what the thumb is drawn on
+ *
+ * Colour and nothing else, for two reasons. The same user-agent clause in SC 2.5.8 is what
+ * excuses a thumb from the 24px target floor it could never reach, and authoring a
+ * `scrollbar-width` would spend that too; `scrollbar-color` changes no dimension. And a
+ * `scrollbar-gutter` would reserve the band beside every house, including the ones that fit
+ *
+ * What colour cannot fix: where the platform draws an overlay scrollbar the bar occupies no
+ * layout space and fades out at rest whatever it is painted. That is why the measurement
+ * below is a contrast ratio rather than a size, and why no test here asserts the bar is
+ * on screen
+ */
+test("the scroller paints a scrollbar the reader can find", async () => {
+  await page.viewport(360, 720);
+  const screen = await render(
+    <div style={{ width: "340px", display: "flex", flexDirection: "column" }}>
+      <Seats map={house(2, 26, 26)} />
+    </div>,
+  );
+  const scroller = screen.container.querySelector('[data-slot="seat-scroller"]') as HTMLElement;
+  await expect.element(screen.getByRole("region", { name: /seat map/i })).toBeVisible();
+  // the premise: nothing paints a scrollbar on a house that fits
+  expect(scroller.scrollWidth).toBeGreaterThan(scroller.clientWidth);
+
+  // Two resolved colours, never `auto`, which is the value the defect wore
+  const colours = getComputedStyle(scroller).scrollbarColor.match(/rgba?\([^)]*\)/g) ?? [];
+  expect(colours).toHaveLength(2);
+  const [thumb, track] = colours as [string, string];
+
+  const surface = getComputedStyle(scroller.parentElement as HTMLElement).backgroundColor;
+  const ratio = contrast(paint(thumb, surface), paint(track, surface));
+  expect(ratio).toBeGreaterThanOrEqual(3);
+  // ...and the value, not just the floor, because 6.50 is what the prose around this cites
+  expect(ratio).toBeCloseTo(6.5, 1);
+  /*
+   * ...and the track is painted the surface it sits on, so the thumb is the only mark on
+   * the panel. The resolved colours, not the composited pixels: a transparent track
+   * composites to the same pixels and would pass while declaring something else
+   */
+  expect(track).toBe(surface);
 });
 
 /*
