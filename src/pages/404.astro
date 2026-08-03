@@ -1,0 +1,24 @@
+---
+import { Hero } from "@/components/blocks/Hero";
+import SeatMark from "@/components/custom/SeatMark.astro";
+import { Link } from "@/components/elements/Link";
+import { Main } from "@/components/layouts/Main";
+import Layout from "@/layouts/Layout.astro";
+
+export const prerender = false;
+
+// Rendered for any unknown route and for a direct /404 hit, always with a real
+// 404 status (never a soft 200)
+Astro.response.status = 404;
+---
+
+<Layout seoProps={{ title: "404: Page Not Found", noindex: true }}>
+  <Main>
+    <Hero size="fullscreen">
+      <SeatMark />
+      <h1>Not Found</h1>
+      <p class="text-lg text-muted-foreground">The page you're looking for doesn't exist.</p>
+      <Link href="/" variant="default" className="mt-4"> Go Home </Link>
+    </Hero>
+  </Main>
+</Layout>

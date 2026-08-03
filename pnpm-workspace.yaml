@@ -1,0 +1,43 @@
+# pnpm 11+ moved settings out of package.json's `pnpm` block to this file
+# `allowBuilds` replaces the old `onlyBuiltDependencies` array with a more
+# expressive map (per-version pinning supported via `<pkg>@<version>: true`)
+#
+# Inherited pnpm 11 defaults (do NOT need to be set explicitly):
+#   - minimumReleaseAge: 1440      (block packages younger than 1 day)
+#   - blockExoticSubdeps: true     (refuse trusted deps pulling untrusted transitive)
+#   - trustPolicy: no-downgrade    (refuse weaker-provenance upgrades)
+#
+# See: pnpm.io/blog/2025-12-29-pnpm-in-2025, pnpm.io/blog/releases/11.0
+
+allowBuilds:
+  esbuild: true
+  lefthook: true
+  sharp: true
+  workerd: true
+engineStrict: true
+
+# Pull the adapter's transitive vite-plugin to 1.42.1 so miniflare ships the
+# patched undici 7.28.0 (dev-only CVE-2026-12151, CVE-2026-6734).
+overrides:
+  '@cloudflare/vite-plugin': ^1.42.1
+  # CVE-2026-59869 (HIGH): js-yaml DoS via crafted YAML documents.
+  # https://avd.aquasec.com/nvd/cve-2026-59869
+  # Transitive only (astro internals, commitlint via cosmiconfig); nothing here
+  # imports it directly. 4.3.0 shipped 2026-06-26, so it clears pnpm 11's
+  # minimumReleaseAge cooldown and this override actually applies, unlike the
+  # fixes deferred in .trivyignore. Caret, not >=, so it cannot drift onto the
+  # v5 major inside Astro internals.
+  js-yaml: ^4.3.0
+  # Dev/build-time audit advisories, no production impact (runtime is workerd)
+  # Caret so pnpm unifies upward without downgrading a healthy copy
+  #
+  # Reviewed 2026-07-26 by re-resolving in a scratch copy, not by reading versions.
+  # Removing all five and resolving fresh lands at or above every floor, so each
+  # looks obsolete. Removing them and re-resolving against the *existing* lockfile
+  # does not: a yaml 2.7.1 copy returns, below its floor. So these are redundant
+  # for a new install and still load-bearing as floors for an existing one. Keep
+  # them until the flagged transitives declare ranges that cannot go back under
+  svgo: ^4.0.2 # GHSA-2p49-hgcm-8545 (svgo <4.0.2, via the astro build)
+  fast-uri: ^3.1.4 # GHSA-v2hh-gcrm-f6hx + 4c8g-83qw-93j6 (via @astrojs/check, commitlint)
+  yaml: ^2.8.3 # GHSA-48c2-rrv3-qjmp (yaml <2.8.3, via @astrojs/check)
+  postcss: ^8.5.18 # GHSA-r28c-9q8g-f849 (postcss <8.5.18, via astro-expressive-code and vite)

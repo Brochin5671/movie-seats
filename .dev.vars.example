@@ -1,0 +1,17 @@
+# Local server secrets for Cloudflare Workers dev.
+#
+# Copy to `.dev.vars` and fill in values. `.dev.vars` (and every other
+# `.dev.vars.*`) is gitignored; only this template is tracked. Real secrets do
+# NOT belong here; use empty placeholders.
+#
+# In production, set each with `wrangler secret put <NAME>`, not from a file.
+# Server secrets are declared in astro.config.mjs `env.schema`
+# (context: "server", access: "secret"). See SECURITY.md for the full map.
+
+# The Cineplex API key, sent as the Ocp-Apim-Subscription-Key header on every
+# upstream call. It is the key Cineplex ships to its own browser, findable in
+# DevTools on cineplex.com, and Cineplex can rotate it at any time.
+#
+# Left unset, every route answers 503 upstream_unconfigured rather than pretending
+# there are no showtimes. The e2e suite runs that way on purpose.
+CINEPLEX_API_KEY=

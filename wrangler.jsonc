@@ -1,0 +1,49 @@
+{
+  // Served at <name>.<account-subdomain>.workers.dev
+  "name": "movie-seats",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-06-17",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  // CONFIGURE: this is served from its *.workers.dev URL, so that route stays on
+  // Once you bind a custom domain (Settings -> Domains & Routes -> Custom Domains), lock
+  // the site to it by adding "workers_dev": false here. On Wrangler 4.44+ "preview_urls"
+  // then default-matches workers_dev (off); add "preview_urls": true to keep per-branch
+  // preview URLs
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // "none": an asset miss falls through to the Worker, which renders the SSR
+    // 404 page (404.astro is prerender=false); no static 404.html is emitted now
+    "not_found_handling": "none"
+  },
+  /* Caps how hard one IP can make this Worker call Cineplex. Every route whose cache key
+     a caller can vary is capped, because a varied key is a guaranteed upstream miss no
+     matter how small the payload. "period" accepts only 10 or 60. These two counts live
+     only here: src/lib/api/rate-limit.ts mirrors the bucket-to-binding map, not the
+     numbers, and its colocated test pins the ordering and the period rather than the
+     values. Counters are per Cloudflare location and eventually consistent, so this is a
+     quota speed bump rather than an access control */
+  "ratelimits": [
+    {
+      "name": "UPSTREAM_LIMITER",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 30,
+        "period": 60
+      }
+    },
+    // The film-wide call, megabytes per response. Thirty a minute would be hundreds of
+    // megabytes a minute of upstream egress; SECURITY.md has the measurement
+    {
+      "name": "HEAVY_LIMITER",
+      "namespace_id": "1002",
+      "simple": {
+        "limit": 5,
+        "period": 60
+      }
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

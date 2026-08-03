@@ -1,0 +1,29 @@
+---
+import { SeatFinder } from "@/components/custom/SeatFinder";
+import { Container } from "@/components/layouts/Container";
+import { Main } from "@/components/layouts/Main";
+import Layout from "@/layouts/Layout.astro";
+import { pageMeta } from "@/lib/site-config";
+
+/*
+ * No header and no footer, per the design. `Main` stays: it is the `main` landmark and
+ * the skip-link target. The only heading is screen-reader-only, because the three
+ * selects are the page and a visible title would only repeat the tab
+ *
+ * `client:load` rather than `client:visible`: the island is the entire above-the-fold
+ * content, so deferring it would only delay the one thing the reader came for
+ *
+ * No `title` in seoProps, deliberately. `buildMetaTitle` reads an absent one as "this is
+ * the homepage" and pairs the brand with the tagline; passing "Movie Seats" took the
+ * inner-page branch instead and rendered "Movie Seats - Movie Seats"
+ */
+---
+
+<Layout seoProps={{ description: pageMeta.home, noindex: true }}>
+  <Main className="py-6">
+    <h1 class="sr-only">Movie Seats</h1>
+    <Container size="narrow">
+      <SeatFinder client:load />
+    </Container>
+  </Main>
+</Layout>
