@@ -13,6 +13,7 @@
  * what the data on hand actually belongs to, and every gate reads those
  */
 
+import { SearchIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/elements/Alert";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/elements/Empty";
@@ -652,10 +653,17 @@ export function SeatFinder() {
             onValueChange={chooseTheatre}
             itemToStringLabel={(entry: Theatre) => entry.name}
             isItemEqualToValue={(a: Theatre, b: Theatre) => a.id === b.id}>
+            {/*
+             * A magnifier rather than a chevron: all three fields filter as you type, and
+             * a chevron reads as a fixed-list picker. It shows only while the field is
+             * empty, since `showClear` puts a clear button in the same slot the moment a
+             * value lands, which is also the moment there is nothing left to search
+             */}
             <ComboboxInput
               id="theatre-select"
               placeholder={booting ? "Loading theatres" : "Choose a theatre"}
               disabled={booting}
+              triggerIcon={SearchIcon}
               showClear
             />
             <ComboboxContent>
@@ -683,6 +691,7 @@ export function SeatFinder() {
               id="movie-select"
               placeholder={booting ? "Loading movies" : "Choose a movie"}
               disabled={booting}
+              triggerIcon={SearchIcon}
               showClear
             />
             <ComboboxContent>
@@ -735,6 +744,7 @@ export function SeatFinder() {
             id="showtime-select"
             placeholder={showtimePlaceholder}
             disabled={!bothChosen || days.length === 0}
+            triggerIcon={SearchIcon}
             showClear
           />
           <ComboboxContent>

@@ -175,6 +175,22 @@ describe("SeatFinder", () => {
     await waitFor(() => expect(showtimes).toBeEnabled());
   });
 
+  /*
+   * A magnifier on all three, never a chevron: every one of these filters as you type, and
+   * the glyph is the only thing that says so. All three triggers exist at boot, including
+   * the showtime one, which is disabled but still rendered and still named
+   */
+  it("marks every select as a search rather than a picker", async () => {
+    render(<SeatFinder />);
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Theatres" })).toBeEnabled());
+
+    const glyphs = screen
+      .getAllByRole("button", { name: "Show suggestions" })
+      .map((trigger) => trigger.querySelector("svg")?.getAttribute("class") ?? "");
+    expect(glyphs).toHaveLength(3);
+    for (const glyph of glyphs) expect(glyph).toContain("lucide-search");
+  });
+
   it("narrows the movie list to what plays at the chosen theatre", async () => {
     const user = userEvent.setup();
     render(<SeatFinder />);
