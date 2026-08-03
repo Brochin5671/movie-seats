@@ -587,7 +587,7 @@ export function SeatFinder() {
         ? // Disabled once the list lands empty, so the placeholder must not go on inviting
           // a choice. Reachable two ways: nothing playing, and a showtimes fetch that failed
           "No showtimes for this pair"
-        : "Choose a showtime, or search by date";
+        : "Pick a showtime, or search by date";
 
   /*
    * Swapping between two showtimes brings the map back into view, and only a swap: the
@@ -661,7 +661,7 @@ export function SeatFinder() {
              */}
             <ComboboxInput
               id="theatre-select"
-              placeholder={booting ? "Loading theatres" : "Choose a theatre"}
+              placeholder={booting ? "Loading theatres" : "Pick a theatre"}
               disabled={booting}
               triggerIcon={SearchIcon}
               showClear
@@ -689,7 +689,7 @@ export function SeatFinder() {
             isItemEqualToValue={(a: Movie, b: Movie) => a.id === b.id}>
             <ComboboxInput
               id="movie-select"
-              placeholder={booting ? "Loading movies" : "Choose a movie"}
+              placeholder={booting ? "Loading movies" : "Pick a movie"}
               disabled={booting}
               triggerIcon={SearchIcon}
               showClear
