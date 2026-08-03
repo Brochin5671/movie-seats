@@ -110,7 +110,7 @@ test("the card is capped and centred rather than filling the column", async () =
 });
 
 /*
- * The card appears on the movie alone and grows two lines when a showtime lands. The
+ * The card appears on the movie alone and grows three lines when a showtime lands. The
  * poster is taller than the text column either way, so that growth must not move it
  */
 test("picking a showtime does not resize the card", async () => {
@@ -127,46 +127,4 @@ test("picking a showtime does not resize the card", async () => {
   ).getBoundingClientRect().height;
 
   expect(chosen).toBe(pending);
-});
-
-/*
- * The auditorium wraps whole, or not at all
- *
- * The theatre name and the auditorium share one line and the name is long, so on a narrow
- * card the pair has to break somewhere. The only acceptable break is the space between
- * them: an auditorium is free text and "VIP 3 (19+)" has an interior space that a normal
- * wrap would use, splitting one label across two lines
- *
- * A narrow wrapper rather than `page.viewport`, which is shared across every file in the
- * browser run and would follow this case into files that did not ask for it
- */
-test("a long auditorium moves to the next line as one piece", async () => {
-  const wordy: Session = { ...session, auditorium: "VIP 3 (19+)" };
-  const screen = await render(
-    <div style={{ width: "260px" }}>
-      <ShowtimeCard movie={movie} theatre={theatre} session={wordy} />
-    </div>,
-  );
-  await expect.element(screen.getByText(movie.name)).toBeVisible();
-
-  const run = screen.container.querySelector('[data-slot="showtime-auditorium"]') as HTMLElement;
-  const line = run.parentElement as HTMLElement;
-
-  /*
-   * Every fragment on one line, which is what "as one piece" means
-   *
-   * Not a rect count: `getClientRects` returns one rect per inline fragment, and this span
-   * has two text nodes, so it is two rects even unbroken. Distinct tops is the thing that
-   * only a break can produce. The fixture is what makes it reachable, since "Aud 12" has no
-   * interior break point and would read as one line either way
-   */
-  const tops = new Set([...run.getClientRects()].map((rect) => Math.round(rect.top)));
-  expect(tops.size).toBe(1);
-
-  // ...and it did have to wrap, or a single-line layout satisfies the above for free
-  expect(run.getBoundingClientRect().top).toBeGreaterThan(line.getBoundingClientRect().top);
-
-  // ...and stayed inside the card rather than being clipped by the body's overflow rule
-  const card = screen.container.querySelector('[data-slot="card"]') as HTMLElement;
-  expect(run.getBoundingClientRect().right).toBeLessThanOrEqual(card.getBoundingClientRect().right);
 });

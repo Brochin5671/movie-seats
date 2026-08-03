@@ -56,16 +56,21 @@ test.describe("Seat finder", () => {
     await selectShowtime(page);
 
     /*
-     * Scoped to the card. The day label also appears as the showtime select's group
-     * heading, which Base UI keeps mounted after a choice is made, so an unscoped text
-     * match resolves to two elements and the assertion cannot say which one it meant
+     * Every line, in order. Scoped to the card, because the day label also appears as the
+     * showtime select's group heading, which Base UI keeps mounted after a choice is made
+     *
+     * An array over the paragraphs rather than four containment checks: it pins which
+     * strings share a line, the order they come in, and that there are exactly four. The
+     * wall clock is the one the API sent, never converted, and the auditorium is free text
+     * rendered verbatim rather than parsed for a number
      */
     const card = page.locator('[data-slot="card"]');
-    await expect(card).toContainText("Spider-Man: Brand New Day");
-    // the theatre-local wall clock, exactly as the API sent it
-    await expect(card).toContainText("Sun Aug 2 · 6:45 PM");
-    // auditorium is free text upstream and is rendered verbatim
-    await expect(card).toContainText("Galaxy Cinemas Barrie · Aud 12");
+    await expect(card.locator("p")).toHaveText([
+      "Spider-Man: Brand New Day",
+      "Sun Aug 2 · 6:45 PM",
+      "Galaxy Cinemas Barrie",
+      "Aud 12 · 3D · D-BOX",
+    ]);
 
     const meter = page.getByRole("meter", { name: "Capacity" });
     await expect(meter).toHaveAttribute("aria-valuenow", "3");

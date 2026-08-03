@@ -4,7 +4,7 @@ import type { Movie, Session, Theatre } from "@/lib/cineplex/types";
 import { ShowtimeCard } from "./ShowtimeCard";
 
 /*
- * The card's three lines, the partial state it renders in before a showtime is picked,
+ * The card's four lines, the partial state it renders in before a showtime is picked,
  * and the two traps beside them: an empty img src, and a `<time>` element whose
  * accessible name axe cannot check
  */
@@ -40,13 +40,23 @@ const session: Session = {
 };
 
 describe("ShowtimeCard", () => {
-  it("shows the title, the theatre-local time and the auditorium", () => {
-    render(<ShowtimeCard movie={movie} theatre={theatre} session={session} />);
+  it("shows the title, the theatre-local time, the venue and the screening", () => {
+    const { container } = render(
+      <ShowtimeCard movie={movie} theatre={theatre} session={session} />,
+    );
     expect(screen.getByText("Spider-Man: Brand New Day")).toBeInTheDocument();
     // the wall clock as sent, never converted
     expect(screen.getByText(/Sun Aug 2/)).toHaveTextContent("6:45 PM");
-    // free text upstream, rendered verbatim rather than parsed for a number
-    expect(screen.getByText(/Galaxy Cinemas Barrie/)).toHaveTextContent("Aud 12");
+    // the venue on a line of its own, so an exact match rather than a containment
+    expect(screen.getByText("Galaxy Cinemas Barrie")).toBeInTheDocument();
+    /*
+     * ...and the auditorium grouped with the formats on the next line. Read off the slot
+     * rather than by text: the whole line is what is being pinned, and the auditorium is
+     * free text upstream, rendered verbatim rather than parsed for a number
+     */
+    const auditorium = container.querySelector('[data-slot="showtime-auditorium"]');
+    expect(auditorium).toHaveTextContent("Aud 12");
+    expect(auditorium?.parentElement).toHaveTextContent("Aud 12 · 3D · D-BOX");
   });
 
   /*
@@ -114,7 +124,7 @@ describe("ShowtimeCard", () => {
       expect(screen.getByText(/6:45 PM/)).toBeInTheDocument();
       // ...while the line that needs both is simply absent, and there is nowhere to book
       expect(screen.queryByText(/Galaxy Cinemas Barrie/)).not.toBeInTheDocument();
-      // title, time, and the formats line, which needs only the session as well
+      // title, time, and the screening line, which needs only the session as well
       expect(container.querySelectorAll("p")).toHaveLength(3);
       expect(screen.queryByRole("link")).not.toBeInTheDocument();
     });
@@ -132,16 +142,47 @@ describe("ShowtimeCard", () => {
       const { container } = render(
         <ShowtimeCard movie={movie} theatre={theatre} session={session} />,
       );
-      expect(formatsOf(container)).toBe("3D · D-BOX");
+      // The separator lives inside the slot, so the auditorium's own run stays clean
+      expect(formatsOf(container)).toBe("· 3D · D-BOX");
     });
 
-    // No line at all rather than an empty one, which would open a gap under the subtitle
-    it("renders nothing when the screening carries none", () => {
+    /*
+     * An ordinary 2D showing sends no experience group at all. The slot is never absent,
+     * because the auditorium ahead of it would then end on a dangling separator
+     */
+    it("falls back to Regular when the screening carries none", () => {
       const { container } = render(
         <ShowtimeCard movie={movie} theatre={theatre} session={{ ...session, experiences: [] }} />,
       );
-      expect(screen.getByText(/Galaxy Cinemas Barrie/)).toBeInTheDocument();
-      expect(container.querySelector('[data-slot="showtime-formats"]')).toBeNull();
+      expect(screen.getByText("Galaxy Cinemas Barrie")).toBeInTheDocument();
+      expect(formatsOf(container)).toBe("· Regular");
+    });
+
+    /*
+     * `experienceTypes` reaches the projection unvalidated, so an upstream blank is a real
+     * shape rather than a hypothetical. A bare length check would pass it straight through
+     * and leave the line ending on its separator
+     */
+    it("treats a blank experience as none at all", () => {
+      const { container } = render(
+        <ShowtimeCard
+          movie={movie}
+          theatre={theatre}
+          session={{ ...session, experiences: ["  "] }}
+        />,
+      );
+      expect(formatsOf(container)).toBe("· Regular");
+    });
+
+    it("drops a blank from among real formats rather than rendering a gap", () => {
+      const { container } = render(
+        <ShowtimeCard
+          movie={movie}
+          theatre={theatre}
+          session={{ ...session, experiences: ["3D", "", "IMAX"] }}
+        />,
+      );
+      expect(formatsOf(container)).toBe("· 3D · IMAX");
     });
   });
 
