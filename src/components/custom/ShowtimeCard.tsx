@@ -24,6 +24,23 @@ export interface ShowtimeCardProps {
  */
 const POSTER_RATIO = 320 / 470;
 
+/**
+ * What the app calls a screening that arrives with no experience group
+ *
+ * An ordinary 2D showing can carry an empty `experiences` array, and the screening line
+ * would then render the auditorium with a trailing separator and nothing after it.
+ * "Regular" is upstream's own word for that tier rather than an invention, which is what
+ * makes it safe to supply: a screening that sends it and one that sends nothing read the
+ * same because they are the same thing
+ */
+const FALLBACK_FORMAT = "Regular";
+
+/** The formats as one run, or the fallback when upstream sent nothing usable */
+const formatsOf = (experiences: readonly string[]) => {
+  const named = experiences.map((entry) => entry.trim()).filter(Boolean);
+  return named.length > 0 ? named.join(" · ") : FALLBACK_FORMAT;
+};
+
 /*
  * A poster thumbnail beside the details rather than above them
  *
@@ -41,17 +58,24 @@ export function ShowtimeCard({ movie, theatre, session }: ShowtimeCardProps) {
   const whenLine = session
     ? `${formatDayLabel(session.start)} · ${formatTimeLabel(session.start)}`
     : null;
-  // An object rather than a joined string, because the auditorium is rendered as its own
-  // unbreakable run below. Still precomputed, so no falsy branch can leak into the markup
-  const where = theatre && session ? { name: theatre.name, auditorium: session.auditorium } : null;
+  // The theatre stands on a line of its own, so this is a plain string
+  const where = theatre && session ? theatre.name : null;
   /*
    * Upstream splits one screening across an experience group per format and `toSessions`
-   * merges them back, so this is already deduplicated. Rendered verbatim and separately
-   * from the auditorium, which sometimes carries the format itself ("AVX 06"): reconciling
-   * the two would mean guessing at free text
+   * merges them back, so `formats` is already deduplicated. Rendered verbatim beside the
+   * auditorium rather than reconciled with it: the auditorium sometimes carries the format
+   * itself ("AVX 06"), and pulling the two apart would mean guessing at free text
+   *
+   * Trimmed and filtered before the length check, not after: `experienceTypes` reaches the
+   * projection unvalidated, so a `[""]` would pass a bare `length > 0` and leave the line
+   * ending on its separator, which is the one thing the fallback exists to prevent
    */
-  const formats =
-    session && session.experiences.length > 0 ? session.experiences.join(" · ") : null;
+  const screening = session
+    ? {
+        auditorium: session.auditorium,
+        formats: formatsOf(session.experiences),
+      }
+    : null;
   const booking = theatre && session ? bookingUrl(theatre.id, session.sessionId) : null;
 
   /*
@@ -94,29 +118,24 @@ export function ShowtimeCard({ movie, theatre, session }: ShowtimeCardProps) {
           <p className="font-medium text-cinema-parchment">{movie.name}</p>
           {/* Nothing at all until there is a showtime, rather than a placeholder */}
           {whenLine ? <p className="text-sm text-cinema-tan">{whenLine}</p> : null}
+          {/* The venue alone. It needs a session too, so the card never names a theatre
+              for a screening nobody has picked */}
+          {where ? <p className="text-sm text-cinema-tan">{where}</p> : null}
           {/*
-           * auditorium is free text upstream, so it is rendered exactly as it arrives, and
-           * as one unbreakable run: the JSX space before the span is the only place the
-           * line can break, so the separator travels onto the new line with the auditorium
-           * rather than the auditorium breaking through its own middle
+           * The auditorium leads and the formats follow, because both describe the
+           * screening rather than the venue. auditorium is free text upstream and is
+           * rendered exactly as it arrives
            *
-           * Safe against reflow at 400% zoom, where `overflow-x-clip` on the body would
-           * cut rather than scroll: the longest auditorium observed is eleven characters
-           * ("VIP 3 (19+)"), about 80px, against a text column of roughly 190px
+           * No `whitespace-nowrap` on the auditorium any more: it was there because the run
+           * trailed the theatre name, so a wrap could land inside "VIP 3 (19+)". Leading its
+           * own line, the first break opportunity is the space before the separator, and an
+           * interior break would need the auditorium alone to outgrow the column: eleven
+           * characters, about 80px, against roughly 190px
            */}
-          {where ? (
+          {screening ? (
             <p className="text-sm text-cinema-tan">
-              {where.name}{" "}
-              <span data-slot="showtime-auditorium" className="whitespace-nowrap">
-                · {where.auditorium}
-              </span>
-            </p>
-          ) : null}
-          {/* Its own line, below the subtitle: appended to the one above it would be a
-              third run competing for the same break */}
-          {formats ? (
-            <p data-slot="showtime-formats" className="text-sm text-cinema-tan">
-              {formats}
+              <span data-slot="showtime-auditorium">{screening.auditorium}</span>{" "}
+              <span data-slot="showtime-formats">· {screening.formats}</span>
             </p>
           ) : null}
           {booking ? (
