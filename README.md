@@ -77,6 +77,9 @@ working shows as a time that stops moving instead of a label that keeps sounding
 
 ## More
 
-- `AGENTS.md` - conventions, testing layers, and the library boundary
+- `AGENTS.md` - the instruction file AI coding agents read before touching this repo:
+  conventions, testing layers, and the library boundary. It follows the
+  [agents.md](https://agents.md) convention, and a one-line `CLAUDE.md` points Claude Code at
+  it so there is one source of truth rather than a copy per tool
 - `CONTRIBUTING.md` - branch naming and commit format
 - `SECURITY.md` - response headers, the API key, reporting
