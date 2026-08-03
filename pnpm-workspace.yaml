@@ -12,6 +12,12 @@
 allowBuilds:
   esbuild: true
   lefthook: true
+  # Declined, not omitted. pnpm 11 fails the install outright on an unlisted build
+  # script, and an existing node_modules does not re-check, so leaving it out is green
+  # locally and red on every CI job at once. msw arrives transitively through
+  # @vitest/mocker and nothing here drives it; its postinstall only seeds a service
+  # worker into a public directory, which this project has no use for
+  msw: false
   sharp: true
   workerd: true
 engineStrict: true
