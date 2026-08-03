@@ -199,14 +199,20 @@ test("the legend sits flush against the seat map", async () => {
 });
 
 /*
- * The refresh control is a real target, unlike the seat cells
+ * The refresh control sits after the word it refreshes, and is a real target
  *
  * A `role="img"` span with no handler is outside SC 2.5.8; a button is not, and 24 x 24 is
- * the minimum. `size="icon-xs"` resolves to `size-6`, which is 24px only while nothing
+ * the minimum. `size="icon-sm"` resolves to `size-8`, which is 32px only while nothing
  * overrides Tailwind's `--spacing`, and the base Button carries a transparent border that
  * would push the box out under `content-box`. Both are measured here rather than assumed
+ *
+ * The ordering is the other half. `role="meter"` is `childrenPresentational`, so the
+ * control can never move inside `Meter`, and putting it beside the word meant lifting the
+ * label and the figure into a row of their own. The component tier owns the wiring that
+ * came with that; the horizontal order and the figure's right edge are what only a
+ * rendered layout can see
  */
-test("the refresh control is at least the minimum target size", async () => {
+test("the refresh control sits after the label, at more than the minimum target size", async () => {
   await page.viewport(1024, 900);
   const screen = await render(<SeatFinder />);
 
@@ -222,16 +228,22 @@ test("the refresh control is at least the minimum target size", async () => {
     screen.container.querySelector<HTMLElement>('[aria-label="Refresh the seat map"]'),
   );
   const box = control.getBoundingClientRect();
-  expect(box.width).toBe(24);
-  expect(box.height).toBe(24);
+  expect(box.width).toBe(32);
+  expect(box.height).toBe(32);
+
+  // "Capacity", then the control, then the figure
+  const label = screen.container.querySelector('[data-slot="capacity-label"]') as HTMLElement;
+  const value = screen.container.querySelector('[data-slot="capacity-value"]') as HTMLElement;
+  expect(box.left).toBeGreaterThanOrEqual(label.getBoundingClientRect().right);
+  expect(box.right).toBeLessThanOrEqual(value.getBoundingClientRect().left);
 
   /*
-   * ...and the meter beside it still fills the row. `Meter` is `flex flex-wrap` with a
-   * `w-full` track, so without `flex-1` it collapses to its content: measured at 91px in a
-   * 600px column against 568px with it, a change nothing else in any tier can see
+   * ...and the figure is pushed to the far edge by `ml-auto`. It is the only thing holding
+   * it there now that the meter's own layout no longer does, and dropping the class leaves
+   * it sitting against the button with nothing else in any tier to notice
    */
-  const meter = screen.container.querySelector('[data-slot="meter"]') as HTMLElement;
-  const row = meter.parentElement as HTMLElement;
-  const gap = 8;
-  expect(meter.getBoundingClientRect().width).toBe(row.getBoundingClientRect().width - 24 - gap);
+  const row = label.parentElement as HTMLElement;
+  expect(Math.round(value.getBoundingClientRect().right)).toBe(
+    Math.round(row.getBoundingClientRect().right),
+  );
 });

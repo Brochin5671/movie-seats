@@ -39,6 +39,38 @@ describe("CapacityMeter", () => {
     expect(meter).toHaveAttribute("aria-valuemax", "10");
   });
 
+  /*
+   * The label and the figure sit outside the meter so the refresh control can go between
+   * them. `role="meter"` is `childrenPresentational`, so anything left inside is pruned
+   * from the accessibility tree, and the name then has to be wired by hand
+   */
+  it("names the meter from a label that sits outside it", () => {
+    const { container } = render(<CapacityMeter map={map([row("a", 10, 2)])} />);
+    const meter = screen.getByRole("meter", { name: "Capacity" });
+    const label = container.querySelector('[data-slot="capacity-label"]') as HTMLElement;
+    const value = container.querySelector('[data-slot="capacity-value"]') as HTMLElement;
+
+    expect(meter).toHaveAttribute("aria-labelledby", label.id);
+    expect(meter.contains(label)).toBe(false);
+    expect(meter.contains(value)).toBe(false);
+
+    /*
+     * ...and the meter is the only one of the two that speaks. Outside the meter the figure
+     * is ordinary text, so a reader would hear the occupancy twice in two wordings, and on
+     * a sold-out house they disagree: FULL against whatever `aria-valuenow` counted
+     */
+    expect(value).toHaveAttribute("aria-hidden", "true");
+    expect(meter).toHaveAttribute("aria-valuetext", "2/10");
+  });
+
+  // The pair that made the duplicate announcement worse than redundant
+  it("speaks FULL rather than the count it contradicts", () => {
+    render(<CapacityMeter map={map([row("a", 10, 2)], true)} />);
+    const meter = screen.getByRole("meter", { name: "Capacity" });
+    expect(meter).toHaveAttribute("aria-valuetext", "FULL");
+    expect(meter).toHaveAttribute("aria-valuenow", "2");
+  });
+
   it("reads the fraction while seats remain", () => {
     render(<CapacityMeter map={map([row("a", 10, 2)])} />);
     expect(screen.getByText("2/10")).toBeInTheDocument();
