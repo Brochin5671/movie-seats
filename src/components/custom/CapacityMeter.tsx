@@ -6,9 +6,10 @@
  */
 
 import { RefreshCwIcon } from "lucide-react";
+import { useId } from "react";
 
 import { Button } from "@/components/elements/Button";
-import { Meter, MeterLabel, MeterValue } from "@/components/elements/Meter";
+import { Meter } from "@/components/elements/Meter";
 import type { SeatMap } from "@/lib/cineplex/types";
 import { capacityOf, isSeatingPoor } from "@/lib/seating";
 
@@ -30,28 +31,37 @@ interface CapacityMeterProps {
 
 export function CapacityMeter({ map, freshness, onRefresh, refreshHeld }: CapacityMeterProps) {
   const { tone, label } = capacityOf(map);
+  /*
+   * The meter's name, wired by hand
+   *
+   * `MeterLabel` would set `aria-labelledby` for us, but only from inside `Meter`, and the
+   * label had to come out so the control could sit beside it. `useId` rather than a
+   * literal, which would collide with a second meter in the same island. It would not save
+   * two islands from each other: React numbers ids per root and Astro gives every island
+   * its own, so a second one would need an `identifierPrefix`
+   */
+  const labelId = useId();
 
   // Raw flex, flagged: `Stack`'s smallest non-zero gap is 8px and this wants 4
   return (
     <div className="flex flex-col gap-1">
       {/*
-       * The control is a sibling of the meter, never a child. `role="meter"` is
-       * `childrenPresentational`, so a focusable descendant is an axe `nested-interactive`
-       * violation and assistive tech drops the button's role and name while it stays
-       * tabbable. `flex-1` because Meter's own track is `w-full` and needs the room
+       * Label, control and figure on one row, with the meter a row of its own beneath.
+       * `role="meter"` is `childrenPresentational`, so a focusable descendant is an axe
+       * `nested-interactive` violation and assistive tech drops the button's role and name
+       * while it stays tabbable: the control can never go inside `Meter`, and putting it
+       * next to the word is only reachable by taking the label out with it
        */}
-      <div className="flex items-center gap-2">
-        {/* Meter renders its own track and indicator after the children */}
-        {/* No aria-label: MeterLabel sets aria-labelledby on the root, which wins over it */}
-        <Meter value={map.occupied} max={Math.max(map.total, 1)} tone={tone} className="flex-1">
-          <MeterLabel>Capacity</MeterLabel>
-          {/*
-           * A render function, which is the only child shape Base UI's Value accepts. The
-           * formatted percentage it would pass in is discarded: the design asks for
-           * `20/150`, and `FULL` once nothing is left
-           */}
-          <MeterValue>{() => label}</MeterValue>
-        </Meter>
+      <div className="flex items-center gap-1">
+        {/*
+         * Raw spans and utilities, flagged rather than silent. `MeterLabel` and `MeterValue`
+         * read Meter's context and cannot render outside it, so the classes come along by
+         * hand. The figure is the design's `20/150`, and `FULL` once nothing is left, rather
+         * than the percentage Base UI would format
+         */}
+        <span id={labelId} data-slot="capacity-label" className="text-sm font-medium">
+          Capacity
+        </span>
         {onRefresh ? (
           /*
            * `aria-disabled`, not `disabled`: a real disabled attribute drops the control
@@ -59,11 +69,14 @@ export function CapacityMeter({ map, freshness, onRefresh, refreshHeld }: Capaci
            * no way to retry or tab onward. The handler is what refuses. The two
            * `aria-disabled:` utilities are load-bearing, because the base Button dims on
            * `:disabled` only and `global.css` gives every button `cursor: pointer`
+           *
+           * `icon-sm` is 32px against SC 2.5.8's floor of 24, so the extra 8 is margin
+           * rather than minimum. A browser test measures it
            */
           <Button
             type="button"
             variant="ghost"
-            size="icon-xs"
+            size="icon-sm"
             aria-label="Refresh the seat map"
             aria-disabled={refreshHeld || undefined}
             onClick={onRefresh}
@@ -71,12 +84,38 @@ export function CapacityMeter({ map, freshness, onRefresh, refreshHeld }: Capaci
             <RefreshCwIcon aria-hidden="true" />
           </Button>
         ) : null}
+        {/*
+         * Hidden, and the meter says the same words instead. Left exposed this is announced
+         * as loose text a step before the meter announces its own figure, so a reader hears
+         * the occupancy twice in two wordings, and on a sold-out house they disagree
+         * outright: the text reads FULL while `aria-valuenow` is whatever the seat map
+         * counted. `aria-valuetext` below carries it once, in the words on screen
+         */}
+        <span
+          aria-hidden="true"
+          data-slot="capacity-value"
+          className="ml-auto text-sm text-muted-foreground tabular-nums">
+          {label}
+        </span>
       </div>
       {/*
-       * Below the row, never above it. `isSeatingPoor` flips as the back fills, so this
-       * appears from nothing on a refresh; above the row it would shove the control down
-       * 24px, and "reflows no control" is one of the three conditions SC 2.2.2's essential
-       * exception rests on
+       * Meter renders its own track and indicator, takes its name from the row above, and
+       * speaks the visible figure rather than the percentage Base UI would derive from
+       * `value`. The percentage was never right here: upstream can flag a screening sold out
+       * while seats remain, which is the whole reason the label reads FULL at 20%
+       */}
+      <Meter
+        value={map.occupied}
+        max={Math.max(map.total, 1)}
+        tone={tone}
+        aria-labelledby={labelId}
+        aria-valuetext={label}
+      />
+      {/*
+       * Below the meter, never above the row. `isSeatingPoor` flips as the back fills, so
+       * this appears from nothing on a refresh; anywhere above the control it would shove it
+       * down a line, and "reflows no control" is one of the three conditions SC 2.2.2's
+       * essential exception rests on
        */}
       {isSeatingPoor(map.rows) && <p className="text-sm text-warning">seating is poor :/</p>}
       {/*

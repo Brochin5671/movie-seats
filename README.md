@@ -67,7 +67,7 @@ makes the awkward parts of the upstream format testable against literal fixtures
 
 An open seat map re-requests `/api/seats` every 30 seconds so it does not go stale, pauses
 while the tab is hidden, and can be refreshed by hand from the control beside the capacity
-meter. The two seat legs are cached apart to pay for that: the auditorium's layout does not
+label. The two seat legs are cached apart to pay for that: the auditorium's layout does not
 change while a screening is on sale, so a refresh costs one upstream call rather than two.
 Change the interval, or the control's cooldown, and you change what the rate limiter and the
 Cineplex quota both have to absorb; `SECURITY.md` has the arithmetic.

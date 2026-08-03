@@ -51,7 +51,7 @@ be 2^64 separate budgets.
 
 The site is now one of the callers that budget has to cover, and it spends it two ways. An
 open seat map refetches every 30 seconds, which is 2 of the 30 requests a minute, so about
-fifteen idle tabs fit behind one address. The refresh control beside the capacity meter is
+fifteen idle tabs fit behind one address. The refresh control beside the capacity label is
 the other: it holds for 10 seconds after each press, so a reader pressing steadily adds at
 most 6 a minute. A worst-case tab is therefore 8, and only three of those fit. Because IPv6
 callers are counted by their /64, that address can be a whole household.
