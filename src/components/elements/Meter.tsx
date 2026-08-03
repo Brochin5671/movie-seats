@@ -4,7 +4,9 @@ import { Meter as MeterPrimitive } from "@base-ui/react/meter";
 
 import { cn, cva, type VariantProps } from "@/lib/utils";
 
-const meterVariants = cva("flex flex-wrap gap-3", {
+// No base layout class: the root's only child is the full-width track, so the `flex
+// flex-wrap gap-3` that used to space a label and a value beside it now spaces nothing
+const meterVariants = cva("", {
   variants: {
     tone: {
       default: "[&_[data-slot=meter-indicator]]:bg-primary",
@@ -85,24 +87,4 @@ function MeterIndicator({ className, ...props }: MeterPrimitive.Indicator.Props)
   );
 }
 
-function MeterLabel({ className, ...props }: MeterPrimitive.Label.Props) {
-  return (
-    <MeterPrimitive.Label
-      className={cn("text-sm font-medium", className)}
-      data-slot="meter-label"
-      {...props}
-    />
-  );
-}
-
-function MeterValue({ className, ...props }: MeterPrimitive.Value.Props) {
-  return (
-    <MeterPrimitive.Value
-      className={cn("ml-auto text-sm text-muted-foreground tabular-nums", className)}
-      data-slot="meter-value"
-      {...props}
-    />
-  );
-}
-
-export { Meter, MeterIndicator, MeterLabel, MeterTrack, MeterValue, meterVariants };
+export { Meter, MeterIndicator, MeterTrack, meterVariants };

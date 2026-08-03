@@ -34,7 +34,7 @@ export function CapacityMeter({ map, freshness, onRefresh, refreshHeld }: Capaci
   /*
    * The meter's name, wired by hand
    *
-   * `MeterLabel` would set `aria-labelledby` for us, but only from inside `Meter`, and the
+   * Base UI sets `aria-labelledby` itself when a label renders inside the meter, but the
    * label had to come out so the control could sit beside it. `useId` rather than a
    * literal, which would collide with a second meter in the same island. It would not save
    * two islands from each other: React numbers ids per root and Astro gives every island
@@ -54,10 +54,10 @@ export function CapacityMeter({ map, freshness, onRefresh, refreshHeld }: Capaci
        */}
       <div className="flex items-center gap-1">
         {/*
-         * Raw spans and utilities, flagged rather than silent. `MeterLabel` and `MeterValue`
-         * read Meter's context and cannot render outside it, so the classes come along by
-         * hand. The figure is the design's `20/150`, and `FULL` once nothing is left, rather
-         * than the percentage Base UI would format
+         * Raw spans and utilities, flagged rather than silent. Base UI's label and value
+         * parts read the meter's context and cannot render outside it, so there was nothing
+         * to reuse once they came out. The figure is the design's `20/150`, and `FULL` once
+         * nothing is left, rather than the percentage Base UI would format
          */}
         <span id={labelId} data-slot="capacity-label" className="text-sm font-medium">
           Capacity
