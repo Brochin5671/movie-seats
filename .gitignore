@@ -1,0 +1,68 @@
+# build output
+dist/
+
+# generated types
+.astro/
+*.tsbuildinfo
+
+# dependencies
+node_modules/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# environment variables
+.env*
+!.env.example
+# Wrangler local secrets (never commit); .dev.vars.example is a tracked template
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# JetBrains IDE
+.idea/
+
+# VS Code (allowlist shared workspace files; personal configs ignored)
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+
+# editor swap / backup / local-override files
+*.swp
+*.swo
+*~
+*.local
+
+# agent-tool config (consumer-managed; AGENTS.md itself IS tracked)
+/.claude*
+/CLAUDE.local.md
+
+# tooling output
+/lh-*.json
+
+# testing
+coverage/
+test-results/
+playwright-report/
+blob-report/
+# Playwright MCP session logs (dev tooling artifacts)
+.playwright-mcp/
+# Vitest Browser Mode failure artifacts (regenerated per run)
+**/__screenshots__/
+.vitest-attachments/
+
+# cloudflare
+.wrangler/
+worker-configuration.d.ts
+
+# generated OG images (regenerated on every build, when satori prebuild is wired)
+public/og/

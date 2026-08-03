@@ -1,0 +1,26 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`SEO meta snapshots > Home meta tags 1`] = `
+{
+  "canonical": "[configurable]",
+  "description": "[configurable]",
+  "htmlLang": "en-US",
+  "ogImage": "[configurable]",
+  "ogLocale": "en_US",
+  "ogSiteName": "[configurable]",
+  "ogTitle": "[configurable]",
+  "ogType": "website",
+  "ogUrl": "[configurable]",
+  "robots": "noindex, nofollow",
+  "title": "[configurable]",
+  "twitterCard": "summary_large_image",
+  "twitterImage": "[configurable]",
+}
+`;
+
+exports[`Structured data (JSON-LD) > Home schema types 1`] = `
+[
+  "Organization",
+  "WebSite",
+]
+`;

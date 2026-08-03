@@ -1,0 +1,37 @@
+---
+import { Hero } from "@/components/blocks/Hero";
+import SeatMark from "@/components/custom/SeatMark.astro";
+import { Link } from "@/components/elements/Link";
+import { Main } from "@/components/layouts/Main";
+import Layout from "@/layouts/Layout.astro";
+import { previewErrorPages } from "@/lib/site-config";
+
+export const prerender = false;
+
+interface Props {
+  error: unknown;
+}
+
+const { error } = Astro.props;
+
+// A real server error routes here with `error` set. A direct visit has none: with
+// `previewErrorPages` off, /500 is not a public route, so render the 404 like any
+// unknown URL. It is on in dev, so the design is viewable there
+if (!previewErrorPages && !error) return Astro.rewrite("/404");
+
+Astro.response.status = 500;
+if (import.meta.env.DEV) console.error(error);
+---
+
+<Layout seoProps={{ title: "500: Something Went Wrong", noindex: true }}>
+  <Main>
+    <Hero size="fullscreen">
+      <SeatMark />
+      <h1>Sorry</h1>
+      <p class="text-lg text-muted-foreground">
+        Something went wrong on our end. Please try again later.
+      </p>
+      <Link href="/" variant="default" className="mt-4"> Go Home </Link>
+    </Hero>
+  </Main>
+</Layout>

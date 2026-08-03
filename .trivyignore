@@ -1,0 +1,13 @@
+# Trivy CVE allowlist. AGENTS.md policy: each entry needs a rationale + review-by date.
+# When the upstream fix lands (or the review-by date arrives), audit and remove.
+
+# GHSA-f88m-g3jw-g9cj (HIGH): sharp inherits libvips CVEs (CVE-2026-33327,
+# CVE-2026-33328, CVE-2026-35590, CVE-2026-35591).
+# https://github.com/advisories/GHSA-f88m-g3jw-g9cj
+# Our direct sharp is 0.35.3 (patched). The flagged copies are dev/build-only
+# transitives: 0.34.5 (miniflare, Cloudflare dev tooling) and 0.33.5 (favilib
+# via astro-favicons, build-time favicon generation). Neither reaches the
+# workerd production runtime. Both are hard-pinned by their parents, so a caret
+# override cannot dedupe them and forcing 0.35.x risks breaking native bindings.
+# Review-by: 2026-09-15 (drop once miniflare + astro-favicons bump sharp >= 0.35.0).
+GHSA-f88m-g3jw-g9cj
