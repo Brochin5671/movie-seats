@@ -56,7 +56,7 @@ export default defineConfig({
       exclude: ["src/components/**/*.astro", "**/*.test.*"],
       /*
        * CONFIGURE: a baseline, not a mandate. Each floor sits four to five points under
-       * measured (91.97 / 88.08 / 87.75 / 94.33), so a refactor keeps headroom while a
+       * measured (91.96 / 88.10 / 87.60 / 94.32), so a refactor keeps headroom while a
        * real regression fails the CI `tests` job. Re-measure with `pnpm test:coverage`
        *
        * Up from 82 / 80 / 74 / 83 after the library prune: what is left is almost all code
