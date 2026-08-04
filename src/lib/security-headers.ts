@@ -28,7 +28,15 @@ export const SECURITY_HEADERS: Readonly<Record<string, string>> = Object.freeze(
    */
   "Cross-Origin-Resource-Policy": "same-origin",
   "Referrer-Policy": "strict-origin-when-cross-origin",
-  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  /*
+   * `geolocation=(self)`, not an empty allowlist. The theatre select orders by distance, and
+   * an empty list denies the feature to this origin too: the prompt never appears and the
+   * error callback fires with PERMISSION_DENIED
+   *
+   * The position never leaves the browser. Every theatre already carries its coordinates, so
+   * the sort runs on the list the page has and no request grows a lat or a lon
+   */
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=(self)",
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
   "Content-Security-Policy":
     "default-src 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: mediafiles.cineplex.com; font-src 'self'; connect-src 'self' cloudflareinsights.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",

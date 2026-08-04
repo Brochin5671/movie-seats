@@ -22,8 +22,10 @@ export interface Theatre {
   name: string;
   city: string;
   province: string;
-  latitude: number;
-  longitude: number;
+  /** Null when upstream sent no location. Zero is a real coordinate, so it cannot stand in */
+  latitude: number | null;
+  longitude: number | null;
+  /** Only ever set when upstream was given an origin, which this app never does */
   distanceMeters: number | null;
 }
 

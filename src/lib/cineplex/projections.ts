@@ -56,8 +56,10 @@ const project = (theatre: RawTheatre): Theatre => ({
   name: theatre.theatreName,
   city: theatre.location?.city ?? "",
   province: theatre.location?.provinceCode ?? "",
-  latitude: theatre.location?.geoLocation?.latitude ?? 0,
-  longitude: theatre.location?.geoLocation?.longitude ?? 0,
+  // Null rather than 0, for the reason the distance below is: zero is a real coordinate,
+  // and an absent one coerced to it puts the theatre in the Gulf of Guinea
+  latitude: theatre.location?.geoLocation?.latitude ?? null,
+  longitude: theatre.location?.geoLocation?.longitude ?? null,
   distanceMeters: theatre.location?.distanceToOriginInMeters ?? null,
 });
 
