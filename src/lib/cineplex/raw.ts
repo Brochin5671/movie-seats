@@ -20,7 +20,11 @@ export interface RawTheatre {
   theatreId: number;
   theatreName: string;
   location: {
-    geoLocation: { latitude: number; longitude: number };
+    /*
+     * Optional because the projection defends against its absence, and a type promising
+     * otherwise would make that guard read as dead code
+     */
+    geoLocation?: { latitude: number; longitude: number } | null;
     city: string;
     provinceCode: string;
     distanceToOriginInMeters?: number | null;
@@ -67,10 +71,15 @@ export interface RawShowtimeTheatre {
 export interface RawSeat {
   id: string;
   /**
-   * 0-based against `totalColumns`
+   * 0-based against the seat's own **area**, not against `totalColumns`
    *
-   * Measured, not assumed: theatre 7249 Aud 12 returned columns 0..24 with
-   * `totalColumns: 26`. The grid adds 1, since CSS grid lines start at 1
+   * Measured across four auditoriums: every `dboxSeats` block starts its columns at 0,
+   * whatever house column it actually occupies, so a block is only placeable once
+   * `RawSeatArea.left` is added back. The standard area always reported `left: 0`, which
+   * is why area-local was mistaken for house-absolute here for so long
+   *
+   * A seat also carries `columnPhysicalNumber`, the same position counted 1-based from the
+   * area's right edge, and `seatGroupIds`. Neither is typed, because nothing reads them
    */
   column: number;
   label: string;
@@ -80,19 +89,31 @@ export interface RawSeat {
 
 export interface RawSeatRow {
   number: number;
+  /** Restarts at 1 in every area, so two rows in one layout can share it */
   physicalNumber: number;
-  label: string;
+  /** Null on a row held open for another area's block, and on a real aisle */
+  label: string | null;
   seats: RawSeat[] | null;
 }
 
 /**
- * One block of rows
+ * One block of rows, and where it sits in the house
  *
- * `top` is a row index, not a pixel offset: the non-standard areas splice into the
- * standard list at that position, and the row counts then sum to `totalRows`
+ * `top` is an index into `standardSeats.rows`, and a non-standard area **overlays** those
+ * rows rather than being inserted before them: the row it lands on is either empty and
+ * held open for it, or holds the standard seats that share the row with the block.
+ * Measured across four auditoriums; `totalRows` agrees with neither reading and is unread
+ *
+ * `left` is the house column the block starts at, and `areaWidth` is how many house columns
+ * it covers. The two differ for D-BOX because those chairs are wider: 16 seats over 20
+ * columns at Scotiabank Toronto. Upstream also sends the per-seat `columnWidth` that
+ * relates them, and it is not typed here because nothing reads it
  */
 export interface RawSeatArea {
+  left: number;
   top: number;
+  areaWidth: number;
+  columnCount: number;
   rowCount: number;
   rows: RawSeatRow[] | null;
 }
