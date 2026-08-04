@@ -41,6 +41,12 @@ import {
   sessionOptionLabel,
   updatedAtLabel,
 } from "@/lib/showtime-format";
+import {
+  formatDistance,
+  type Point,
+  sortByDistance,
+  theatreDistanceKm,
+} from "@/lib/theatre-distance";
 import { CapacityMeter } from "./CapacityMeter";
 import { SeatLegend } from "./SeatLegend";
 import { SeatMap } from "./SeatMap";
@@ -88,6 +94,64 @@ function useDelayedFlag(active: boolean, delayMs: number) {
     return () => clearTimeout(timer);
   }, [active, delayMs]);
   return elapsed;
+}
+
+/**
+ * Options for the one position request this page makes
+ *
+ * High accuracy off: a theatre list sorts at kilometre scale, and GPS costs battery and
+ * seconds to answer a question a cell fix already answers. `maximumAge` accepts a fix up to
+ * five minutes old, since nobody moves between theatres inside one visit
+ *
+ * The timeout is a chosen bound rather than a measured one, and has to be set at all because
+ * the spec's default is `Infinity`: without it a request that never resolves never ends
+ */
+const POSITION_OPTIONS: PositionOptions = {
+  enableHighAccuracy: false,
+  timeout: 10_000,
+  maximumAge: 300_000,
+};
+
+/**
+ * The reader's position, asked for once when the island mounts
+ *
+ * Nearest-first is the default rather than something to press for, so this runs on mount and
+ * there is no control. The cost, taken deliberately: a denial has no retry affordance on the
+ * page, and recovering means the browser's own site settings
+ *
+ * Failure is silent. Nothing moved, so there is nothing to announce, and a reader who just
+ * refused the prompt does not need telling what they did
+ *
+ * Once only. A repeat on any later event would put an auto-updating region under SC 2.2.2,
+ * which this is outside of precisely because it fires a single time after hydration
+ *
+ * `navigator.geolocation` is read for truthiness rather than with `in`: happy-dom defines the
+ * property as null, so the key is present and dereferencing it throws
+ */
+function useGeolocation(): Point | null {
+  const [origin, setOrigin] = useState<Point | null>(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    let current = true;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (!current) return;
+        setOrigin({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+      },
+      // Denied, unavailable or timed out all mean the same thing here: no reordering
+      () => {},
+      POSITION_OPTIONS,
+    );
+    return () => {
+      current = false;
+    };
+  }, []);
+
+  return origin;
 }
 
 const errorMessage = (error: unknown) =>
@@ -151,6 +215,21 @@ export function SeatFinder() {
   const [theatres, setTheatres] = useState<Theatre[] | null>(null);
   const [movies, setMovies] = useState<Movie[] | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
+  const origin = useGeolocation();
+  const [theatreListOpen, setTheatreListOpen] = useState(false);
+  /*
+   * The position, held back until the theatre list is closed
+   *
+   * Base UI tracks the highlighted option as a plain index and its `aria-activedescendant`
+   * is built from that index, so reordering an open list moves the highlight onto a
+   * different theatre while the id it reports stays byte-identical: nothing announces, and
+   * the next Enter selects somewhere the reader never aimed at. The reorder is worth having
+   * and the reader looking at the list is worth not disturbing, so it waits for the close
+   */
+  const [sortOrigin, setSortOrigin] = useState<Point | null>(null);
+  useEffect(() => {
+    if (!theatreListOpen) setSortOrigin(origin);
+  }, [origin, theatreListOpen]);
 
   const [theatre, setTheatre] = useState<Theatre | null>(null);
   const [movie, setMovie] = useState<Movie | null>(null);
@@ -536,10 +615,31 @@ export function SeatFinder() {
     return () => clearTimeout(timer);
   }, [heldUntil]);
 
-  // Plain filters over lists the client already holds
-  const visibleTheatres = allowedTheatreIds
-    ? (theatres ?? []).filter((entry) => allowedTheatreIds.has(entry.id))
-    : (theatres ?? []);
+  /*
+   * Plain filters over lists the client already holds, and the theatres then ordered by how
+   * far away they are. Filter first, so the sort only ever runs over what is on screen
+   *
+   * `sortByDistance` returns its input untouched while there is no position, which is both
+   * the server render and every client render before the prompt is answered: the API's own
+   * order stands until the reader's own is available
+   */
+  const visibleTheatres = sortByDistance(
+    allowedTheatreIds
+      ? (theatres ?? []).filter((entry) => allowedTheatreIds.has(entry.id))
+      : (theatres ?? []),
+    sortOrigin,
+  );
+  /*
+   * Whether the ordering above is actually the reader's own: at least one theatre has to
+   * carry coordinates, or nothing moved and no distance is drawn
+   *
+   * Measured against the whole list rather than the visible one, which is what keeps this
+   * from flipping. Read off `visibleTheatres` it changes as a movie narrows the list, and a
+   * live region whose text goes away and comes back announces itself again every time
+   */
+  const sorted =
+    sortOrigin !== null &&
+    (theatres ?? []).some((entry) => theatreDistanceKm(entry, sortOrigin) !== null);
   const visibleMovies = allowedFilmIds
     ? (movies ?? []).filter((entry) => allowedFilmIds.has(entry.id))
     : (movies ?? []);
@@ -651,6 +751,7 @@ export function SeatFinder() {
             items={visibleTheatres}
             value={theatre}
             onValueChange={chooseTheatre}
+            onOpenChange={setTheatreListOpen}
             itemToStringLabel={(entry: Theatre) => entry.name}
             isItemEqualToValue={(a: Theatre, b: Theatre) => a.id === b.id}>
             {/*
@@ -669,14 +770,45 @@ export function SeatFinder() {
             <ComboboxContent>
               <ComboboxEmpty>No theatres match</ComboboxEmpty>
               <ComboboxList>
-                {(entry: Theatre) => (
-                  <ComboboxItem key={entry.id} value={entry}>
-                    {entry.name}
-                  </ComboboxItem>
-                )}
+                {(entry: Theatre) => {
+                  const km = theatreDistanceKm(entry, sortOrigin);
+                  return (
+                    /*
+                     * The distance rides in the option's children, never in
+                     * `itemToStringLabel`. That feeds both the input's value after a choice
+                     * and Base UI's own filter, so a distance there would make "2 km" a
+                     * search term over a number that moves, and would write a stale one into
+                     * the field
+                     */
+                    <ComboboxItem key={entry.id} value={entry}>
+                      {entry.name}
+                      {km === null ? null : (
+                        <span className="ml-auto pl-3 text-xs text-muted-foreground tabular-nums">
+                          {formatDistance(km)}
+                        </span>
+                      )}
+                    </ComboboxItem>
+                  );
+                }}
               </ComboboxList>
             </ComboboxContent>
           </Combobox>
+          {/*
+           * Mounted empty from first render, because a live region added at the same time as
+           * its text announces nothing. The list can reorder under a reader who is already in
+           * it, so the reorder is the thing worth saying
+           *
+           * A fixed string on purpose. It is announced exactly once, on the empty-to-text
+           * change when the position lands, and naming the nearest theatre instead would
+           * re-announce every time picking a movie narrowed the list to a different one
+           *
+           * Gated on the sort having something to do, not just on the position arriving: a
+           * one-theatre list, or one where upstream sent no coordinates at all, would
+           * otherwise claim an ordering nobody could see
+           */}
+          <span role="status" data-slot="theatres-status" className="sr-only">
+            {sorted ? "Theatres sorted by distance, nearest first." : ""}
+          </span>
         </Field>
 
         <Field className="flex-1">
@@ -857,7 +989,7 @@ export function SeatFinder() {
            * same time as its text announces nothing. `role="status"` implies polite and
            * atomic, so neither is restated
            */}
-          <span role="status" className="sr-only">
+          <span role="status" data-slot="seats-status" className="sr-only">
             {soldSinceArrival > 0
               ? `${soldSinceArrival} seat${soldSinceArrival === 1 ? "" : "s"} sold since this map loaded`
               : ""}

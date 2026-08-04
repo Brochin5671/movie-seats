@@ -8,12 +8,17 @@
 #
 # img-src also allows mediafiles.cineplex.com, which is where movie posters are
 # served from. Without it every poster on the page is blocked
+#
+# Permissions-Policy allows geolocation for this origin only. The theatre select
+# orders by distance, and an empty allowlist denies the feature to the page's own
+# origin as well, so no prompt ever appears. The position never leaves the browser:
+# theatres arrive with their coordinates and the sort runs on the list already held
 /*
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Cross-Origin-Resource-Policy: same-origin
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Permissions-Policy: camera=(), microphone=(), geolocation=(self)
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   Content-Security-Policy: default-src 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: mediafiles.cineplex.com; font-src 'self'; connect-src 'self' cloudflareinsights.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
 

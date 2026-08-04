@@ -436,3 +436,45 @@ test.describe("Seat finder", () => {
     expect(doc.scrollWidth).toBe(doc.clientWidth);
   });
 });
+
+/*
+ * Ordering the theatre list by distance, which is the only tier that can prove the header
+ * change works
+ *
+ * `Permissions-Policy: geolocation=(self)` is served from `public/_headers` for the
+ * prerendered home page, and an empty allowlist there denies the API to the page's own
+ * origin: the prompt never appears and the error callback fires. The unit tier cannot see
+ * that at all, and the parity test between `_headers` and `security-headers.ts` only proves
+ * the two agree, not that the value works. Revert the directive and this reorder stops
+ */
+test.describe("nearest theatres first", () => {
+  /*
+   * Mississauga: 21 km from Scotiabank Toronto and 82 km from Galaxy Cinemas Barrie. Barrie
+   * is first in the fixture, so the sorted order is not the order the API sent
+   */
+  test.use({
+    geolocation: { latitude: 43.589, longitude: -79.6441 },
+    permissions: ["geolocation"],
+  });
+
+  test("reorders the theatres and shows how far away each one is", async ({ page }) => {
+    await stubApi(page);
+    await page.goto("/");
+    await waitForHydration(page);
+
+    await page.getByRole("combobox", { name: "Theatres" }).click();
+    await expect(page.getByRole("option")).toHaveText([
+      "Scotiabank Theatre Toronto21 km",
+      "Galaxy Cinemas Barrie82 km",
+    ]);
+  });
+
+  /*
+   * The header is what a browser reads, so this asserts the value on the response rather
+   * than on the constant the app builds it from
+   */
+  test("serves a Permissions-Policy that allows geolocation for this origin", async ({ page }) => {
+    const response = await page.goto("/");
+    expect(response?.headers()["permissions-policy"]).toContain("geolocation=(self)");
+  });
+});

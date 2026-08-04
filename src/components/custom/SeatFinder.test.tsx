@@ -11,14 +11,18 @@ import { ApiError } from "@/lib/cineplex-client";
  * e2e suite ever sees because its preview server has no API key
  */
 
+/*
+ * Real coordinates, and Barrie first, so the API's own order is not the distance order: a
+ * sort that never ran and a sort that ran from Toronto give different answers
+ */
 const theatres: Theatre[] = [
   {
     id: 1,
     name: "Galaxy Barrie",
     city: "Barrie",
     province: "ON",
-    latitude: 0,
-    longitude: 0,
+    latitude: 44.3894,
+    longitude: -79.6903,
     distanceMeters: null,
   },
   {
@@ -26,8 +30,8 @@ const theatres: Theatre[] = [
     name: "Scotiabank Toronto",
     city: "Toronto",
     province: "ON",
-    latitude: 0,
-    longitude: 0,
+    latitude: 43.6532,
+    longitude: -79.3832,
     distanceMeters: null,
   },
 ];
@@ -94,6 +98,14 @@ const aShowtime: Session = {
 
 /** ...and a second one to swap to, reading "9:30 PM" in the picker */
 const twoShowtimes = [aShowtime, { ...aShowtime, sessionId: 2, start: "2026-08-02T21:30:00" }];
+
+/*
+ * The map's own live region. Two `role="status"` regions are on the page, this one and the
+ * theatre list's, so a bare role query matches both: the slot says which is meant while the
+ * selector still asserts the role
+ */
+const seatStatus = () =>
+  document.querySelector('[data-slot="seats-status"][role="status"]') as HTMLElement;
 
 const pick = async (user: ReturnType<typeof userEvent.setup>, id: string, label: string) => {
   await user.click(screen.getByRole("combobox", { name: id }));
@@ -783,12 +795,12 @@ describe("SeatFinder", () => {
 
       await vi.advanceTimersByTimeAsync(SEAT_REFRESH_MS);
       await waitFor(() => expect(screen.getByText("2/10")).toBeInTheDocument());
-      expect(screen.getByRole("status").textContent).toBe("");
+      expect(seatStatus().textContent).toBe("");
 
       // ...still counted from arrival, so it is the climb past that which gets said
       await vi.advanceTimersByTimeAsync(SEAT_REFRESH_MS);
       await waitFor(() =>
-        expect(screen.getByRole("status")).toHaveTextContent("2 seats sold since this map loaded"),
+        expect(seatStatus()).toHaveTextContent("2 seats sold since this map loaded"),
       );
     });
 
@@ -1087,16 +1099,16 @@ describe("SeatFinder", () => {
       // Mounted and empty, which is what lets it announce at all, and `textContent` rather
       // than `toHaveTextContent("")`, which every string satisfies
       expect(await screen.findByText("3/10")).toBeInTheDocument();
-      expect(screen.getByRole("status").textContent).toBe("");
+      expect(seatStatus().textContent).toBe("");
 
       await vi.advanceTimersByTimeAsync(SEAT_REFRESH_MS);
       await waitFor(() =>
-        expect(screen.getByRole("status")).toHaveTextContent("1 seat sold since this map loaded"),
+        expect(seatStatus()).toHaveTextContent("1 seat sold since this map loaded"),
       );
 
       await vi.advanceTimersByTimeAsync(SEAT_REFRESH_MS);
       await waitFor(() =>
-        expect(screen.getByRole("status")).toHaveTextContent("3 seats sold since this map loaded"),
+        expect(seatStatus()).toHaveTextContent("3 seats sold since this map loaded"),
       );
     });
 
@@ -1424,5 +1436,307 @@ describe("SeatFinder", () => {
       // it is still relying on, or the hydration wait in every e2e spec resolves early
       expect(container.querySelectorAll("[data-pending]")).toHaveLength(1);
     });
+  });
+});
+
+/*
+ * Ordering the theatre list by how far away the reader is
+ *
+ * `navigator.geolocation` is installed with `defineProperty` rather than `vi.spyOn`, because
+ * happy-dom defines the property as null and there is no method on it to spy on.
+ * `unstubAllGlobals` does not reach a property defined this way either, so each case puts it
+ * back itself
+ */
+describe("nearest first", () => {
+  /*
+   * Mississauga: 22 km from Scotiabank Toronto and 89 km from Galaxy Barrie, by the same
+   * haversine `theatre-distance.test.ts` pins against its own derivations. Not sitting on
+   * either theatre, so neither distance lands on the "<1 km" branch by accident
+   */
+  const MISSISSAUGA = { coords: { latitude: 43.589, longitude: -79.6441 } };
+
+  const installGeolocation = (value: unknown) => {
+    Object.defineProperty(navigator, "geolocation", { value, configurable: true });
+  };
+
+  /** Answers with a position, the way an allowed prompt does */
+  const granted = (position = MISSISSAUGA) => {
+    const getCurrentPosition = vi.fn(
+      (
+        onSuccess: PositionCallback,
+        _onError?: PositionErrorCallback,
+        _options?: PositionOptions,
+      ) => {
+        onSuccess(position as GeolocationPosition);
+      },
+    );
+    installGeolocation({ getCurrentPosition });
+    return getCurrentPosition;
+  };
+
+  /** ...and one that reports a `GeolocationPositionError` code instead */
+  const refused = (code: number) => {
+    const getCurrentPosition = vi.fn((_ok: PositionCallback, onError: PositionErrorCallback) => {
+      onError({ code, message: "" } as GeolocationPositionError);
+    });
+    installGeolocation({ getCurrentPosition });
+    return getCurrentPosition;
+  };
+
+  const optionOrder = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(screen.getByRole("combobox", { name: "Theatres" }));
+    const options = await screen.findAllByRole("option");
+    return options.map((option) => option.textContent);
+  };
+
+  afterEach(() => {
+    // happy-dom's own value, so a case that never installs one still sees the default
+    installGeolocation(null);
+  });
+
+  it("reorders the theatres nearest first once the position arrives", async () => {
+    granted();
+    const user = userEvent.setup();
+    render(<SeatFinder />);
+    await screen.findByRole("combobox", { name: "Theatres" });
+    // Toronto is second in the API's order, so this is a reorder rather than a coincidence
+    expect(await optionOrder(user)).toEqual(["Scotiabank Toronto22 km", "Galaxy Barrie89 km"]);
+  });
+
+  /*
+   * One call, ever. A second on any later event would make this an auto-updating region under
+   * SC 2.2.2, which a single request after hydration is outside of
+   */
+  it("asks for the position exactly once across a whole session", async () => {
+    const getCurrentPosition = granted();
+    api.showtimes.mockResolvedValue([aShowtime]);
+    const user = userEvent.setup();
+    render(<SeatFinder />);
+    // Two selections and the renders they cause, which is where a mount-only effect that
+    // was written as a plain call would fire again
+    await user.click(screen.getByRole("combobox", { name: "Theatres" }));
+    await user.click(await screen.findByRole("option", { name: /Scotiabank Toronto/ }));
+    await pick(user, "Movies", "Spider-Man");
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Showtimes" })).toBeEnabled());
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+
+    /*
+     * ...and it was asked with a bound. The spec's default timeout is `Infinity`, so dropping
+     * the options object leaves a refused-but-never-answered prompt hanging forever, and
+     * nothing else in any tier reads the third argument
+     */
+    expect(getCurrentPosition.mock.calls[0]?.[2]).toMatchObject({
+      enableHighAccuracy: false,
+      timeout: 10_000,
+      maximumAge: 300_000,
+    });
+  });
+
+  /*
+   * A live region added at the same time as its text announces nothing, so the empty-to-text
+   * change is the whole mechanism and has to be asserted as a change rather than as an end
+   * state. Read off the slot, since the page carries two `role="status"` regions
+   */
+  it("announces the reorder once, in a region mounted empty", async () => {
+    let announce: (position: GeolocationPosition) => void = () => {};
+    installGeolocation({
+      getCurrentPosition: vi.fn((onSuccess: PositionCallback) => {
+        announce = onSuccess;
+      }),
+    });
+    render(<SeatFinder />);
+
+    const region = () =>
+      document.querySelector('[data-slot="theatres-status"][role="status"]') as HTMLElement;
+    // Present and silent before the position lands, which is what makes the change audible
+    expect(region()).not.toBeNull();
+    expect(region().textContent).toBe("");
+
+    await act(async () => announce(MISSISSAUGA as GeolocationPosition));
+    expect(region().textContent).toBe("Theatres sorted by distance, nearest first.");
+  });
+
+  /*
+   * The whole claim the feature rests on: the position is used to sort a list the page
+   * already holds, and no request grows a coordinate
+   */
+  it("sends the position nowhere", async () => {
+    granted();
+    api.showtimes.mockResolvedValue([aShowtime]);
+    const user = userEvent.setup();
+    render(<SeatFinder />);
+    /*
+     * Every request the page makes, not just the first: sweeping after the boot fetch alone
+     * would run over one call and pass however the other five behaved
+     */
+    await user.click(screen.getByRole("combobox", { name: "Theatres" }));
+    await user.click(await screen.findByRole("option", { name: /Scotiabank Toronto/ }));
+    await pick(user, "Movies", "Spider-Man");
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Showtimes" })).toBeEnabled());
+    await pick(user, "Showtimes", "7:10 PM");
+    await waitFor(() => expect(api.seats).toHaveBeenCalled());
+
+    /*
+     * Serialised, not stringified. `String({ lat: 43.589 })` is "[object Object]", so a
+     * coordinate tucked inside an options object would sail straight through, and this case
+     * is what SECURITY.md points at when it says no request carries one
+     */
+    const readable = (value: unknown) => JSON.stringify(value) ?? String(value);
+    // The premise: the reader can see a coordinate wherever it is put
+    expect(readable({ options: { lat: 43.589 } })).toContain("43.58");
+    expect(readable("/theatres?lat=43.589")).toContain("43.58");
+
+    const calls = Object.values(api).flatMap((mock) => mock.mock.calls);
+    // ...and there are calls to sweep, across every route the page reached
+    expect(calls.length).toBeGreaterThanOrEqual(5);
+    for (const call of calls) {
+      for (const argument of call) {
+        // An AbortSignal is the one thing every call carries, and it holds no data
+        if (argument instanceof AbortSignal) continue;
+        expect(readable(argument)).not.toContain("43.58");
+        expect(readable(argument)).not.toContain("79.64");
+      }
+    }
+  });
+
+  /*
+   * PERMISSION_DENIED, POSITION_UNAVAILABLE and TIMEOUT. All three mean the same thing here:
+   * the API's own order stands, nothing is announced, and no distance is drawn
+   */
+  it.each([
+    [1, "permission denied"],
+    [2, "position unavailable"],
+    [3, "timed out"],
+  ])("leaves the order alone when the position is refused (%i, %s)", async (code) => {
+    refused(code);
+    const user = userEvent.setup();
+    render(<SeatFinder />);
+    await screen.findByRole("combobox", { name: "Theatres" });
+    expect(await optionOrder(user)).toEqual(["Galaxy Barrie", "Scotiabank Toronto"]);
+    expect(screen.queryByText(/sorted by distance/)).not.toBeInTheDocument();
+  });
+
+  // The default environment, and the one `"geolocation" in navigator` reads as present
+  it("survives the API being absent altogether", async () => {
+    installGeolocation(null);
+    const user = userEvent.setup();
+    render(<SeatFinder />);
+    await screen.findByRole("combobox", { name: "Theatres" });
+    expect(await optionOrder(user)).toEqual(["Galaxy Barrie", "Scotiabank Toronto"]);
+  });
+
+  /*
+   * Nothing to say when nothing could move
+   *
+   * Upstream sends a theatre with no `geoLocation` as null coordinates rather than zeros, so
+   * the sort leaves the list alone and no distance is drawn. Announcing a reorder there would
+   * describe something the reader cannot find
+   */
+  it("stays silent when no theatre has coordinates", async () => {
+    api.theatres.mockResolvedValue(
+      theatres.map((entry) => ({ ...entry, latitude: null, longitude: null })),
+    );
+    granted();
+    const user = userEvent.setup();
+    render(<SeatFinder />);
+    await screen.findByRole("combobox", { name: "Theatres" });
+
+    expect(document.querySelector('[data-slot="theatres-status"]')?.textContent).toBe("");
+    // ...and the list keeps the API's order, with no distance beside either name
+    expect(await optionOrder(user)).toEqual(["Galaxy Barrie", "Scotiabank Toronto"]);
+  });
+
+  /*
+   * ...and it does not go quiet again once it has spoken. The gate reads the whole theatre
+   * list rather than the filtered one, because a live region whose text disappears and comes
+   * back announces itself a second time, which picking a movie would otherwise cause
+   */
+  it("keeps the announcement standing while a movie narrows the list", async () => {
+    granted();
+    /*
+     * Narrowed to the one theatre that has no coordinates, which is what separates the two
+     * readings: the whole list still holds a locatable theatre, the filtered one does not
+     */
+    api.theatres.mockResolvedValue([
+      { ...(theatres[0] as Theatre), latitude: null, longitude: null },
+      theatres[1] as Theatre,
+    ]);
+    api.theatresForMovie.mockResolvedValue({ theatreIds: [1] });
+    const user = userEvent.setup();
+    render(<SeatFinder />);
+    await screen.findByRole("combobox", { name: "Theatres" });
+    const region = () => document.querySelector('[data-slot="theatres-status"]') as HTMLElement;
+    await waitFor(() => expect(region().textContent).not.toBe(""));
+
+    await pick(user, "Movies", "Spider-Man");
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Movies" })).toHaveValue("Spider-Man"),
+    );
+    // the one theatre left has no distance to show, and the region has still not flickered
+    expect(await optionOrder(user)).toEqual(["Galaxy Barrie"]);
+    expect(region().textContent).toBe("Theatres sorted by distance, nearest first.");
+  });
+
+  /*
+   * A reorder under an open list retargets the highlight silently
+   *
+   * Base UI tracks the highlighted option as a plain index and builds
+   * `aria-activedescendant` from it, so a same-length reorder leaves the reported id
+   * byte-identical while the option under it becomes a different theatre: nothing announces,
+   * and the next Enter selects somewhere the reader never aimed at. The order is therefore
+   * held until the list closes
+   */
+  it("holds the reorder while the theatre list is open", async () => {
+    let announce: (position: GeolocationPosition) => void = () => {};
+    installGeolocation({
+      getCurrentPosition: vi.fn((onSuccess: PositionCallback) => {
+        announce = onSuccess;
+      }),
+    });
+    const user = userEvent.setup();
+    render(<SeatFinder />);
+    await screen.findByRole("combobox", { name: "Theatres" });
+
+    await user.click(screen.getByRole("combobox", { name: "Theatres" }));
+    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual([
+      "Galaxy Barrie",
+      "Scotiabank Toronto",
+    ]);
+
+    // The position lands mid-browse, and nothing moves under the reader
+    await act(async () => announce(MISSISSAUGA as GeolocationPosition));
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Galaxy Barrie",
+      "Scotiabank Toronto",
+    ]);
+
+    // ...and it applies as soon as the list is out of the way
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryAllByRole("option")).toHaveLength(0));
+    await user.click(screen.getByRole("combobox", { name: "Theatres" }));
+    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual([
+      "Scotiabank Toronto22 km",
+      "Galaxy Barrie89 km",
+    ]);
+  });
+
+  /*
+   * The sort runs over what the filter left, and the selection survives it. `visibleTheatres`
+   * is rebuilt on every render, so the picked theatre is a different array position each time
+   * and only the id-based `isItemEqualToValue` keeps it attached
+   */
+  it("composes with the narrowing filter and keeps the selection", async () => {
+    granted();
+    api.theatresForMovie.mockResolvedValue({ theatreIds: [1, 2] });
+    const user = userEvent.setup();
+    render(<SeatFinder />);
+    await user.click(screen.getByRole("combobox", { name: "Theatres" }));
+    await user.click(await screen.findByRole("option", { name: /Scotiabank Toronto/ }));
+    await pick(user, "Movies", "Spider-Man");
+
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Theatres" })).toHaveValue("Scotiabank Toronto"),
+    );
+    expect(await optionOrder(user)).toEqual(["Scotiabank Toronto22 km", "Galaxy Barrie89 km"]);
   });
 });
