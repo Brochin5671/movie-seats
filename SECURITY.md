@@ -19,6 +19,13 @@ The Content-Security-Policy allows images from `mediafiles.cineplex.com`, which 
 where movie posters are served from. Nothing else third-party is permitted: `font-src`
 is `'self'` because the brand font is self-hosted, and `frame-ancestors` is `'none'`.
 
+`Permissions-Policy` denies the camera and the microphone outright and allows geolocation
+for this origin only, as `geolocation=(self)`. The theatre list orders by distance, and an
+empty allowlist denies the feature to the page's own origin too, so no prompt would ever
+appear. The position is never sent anywhere: theatres arrive from the API with their
+coordinates already on them, so the ordering is done in the browser against a list it
+already holds, and a component test asserts no request carries a coordinate.
+
 `Cross-Origin-Resource-Policy: same-origin` is in the same set. Nothing here sends
 `Access-Control-Allow-Origin`, so a browser already blocks another site's JavaScript from
 reading these responses; CORP closes the other half by blocking a no-cors embed, which
