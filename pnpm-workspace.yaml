@@ -44,6 +44,21 @@ overrides:
   # for a new install and still load-bearing as floors for an existing one. Keep
   # them until the flagged transitives declare ranges that cannot go back under
   svgo: ^4.0.2 # GHSA-2p49-hgcm-8545 (svgo <4.0.2, via the astro build)
-  fast-uri: ^3.1.4 # GHSA-v2hh-gcrm-f6hx + 4c8g-83qw-93j6 (via @astrojs/check, commitlint)
+  # GHSA-v2hh-gcrm-f6hx + 4c8g-83qw-93j6 + CVE-2026-18446 (via @astrojs/check, commitlint)
+  fast-uri: ^3.1.5
   yaml: ^2.8.3 # GHSA-48c2-rrv3-qjmp (yaml <2.8.3, via @astrojs/check)
   postcss: ^8.5.18 # GHSA-r28c-9q8g-f849 (postcss <8.5.18, via astro-expressive-code and vite)
+  # CVE-2026-13697 (HIGH): undici's cache interceptor mishandles a malformed
+  # `Cache-Control: private`, so a private response can be served from a shared cache.
+  # https://avd.aquasec.com/nvd/cve-2026-13697
+  #
+  # Scoped to the 7.x line, which is where the three flagged copies are: cheerio, miniflare
+  # and @semantic-release/github. A bare `undici` override would also catch the 6.27.0 copy
+  # under @actions/http-client, which asks for ^6 and was never flagged, and dragging it
+  # across a major to answer a different package's advisory is more than the advisory asks.
+  #
+  # Dev and CI only, with no production impact: the runtime is workerd, miniflare is the
+  # local test runtime, cheerio parses HTML in the build tier, and semantic-release talks to
+  # the GitHub API from the release job.
+  # 7.29.0 shipped 2026-07-24, so it clears pnpm 11's minimumReleaseAge cooldown
+  undici@^7: ^7.29.0
