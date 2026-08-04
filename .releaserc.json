@@ -6,7 +6,6 @@
       {
         "preset": "conventionalcommits",
         "releaseRules": [
-          { "breaking": true, "release": "minor" },
           { "scope": "deps", "release": "patch" },
           { "type": "refactor", "release": "patch" }
         ]
