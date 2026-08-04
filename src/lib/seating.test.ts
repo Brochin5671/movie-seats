@@ -238,6 +238,119 @@ describe("optimalSeatIds", () => {
       "r0-4",
     ]);
   });
+
+  /*
+   * D-BOX takes the whole recommendation wherever the window offers one
+   *
+   * Kind comes from the area a row belongs to and never from the seat, so a row is entirely
+   * D-BOX or entirely not, and the rule chooses between rows
+   */
+  describe("a D-BOX block", () => {
+    /** Nine seats, so the middle third is columns 3 to 5 */
+    const kindRow = (label: string, kind: Seat["kind"], taken = false): SeatRow => ({
+      label,
+      physicalNumber: 1,
+      seats: Array.from({ length: 9 }, (_, column) =>
+        seat(`${label}-${column}`, column, taken, kind),
+      ),
+    });
+    /** The window in a six-row house is rows 3 to 5 */
+    const house = (...back: SeatRow[]) => [
+      kindRow("r0", "Standard"),
+      kindRow("r1", "Standard"),
+      kindRow("r2", "Standard"),
+      ...back,
+    ];
+
+    it("recommends only the D-BOX rows when the window straddles the block", () => {
+      const rows = house(kindRow("r3", "Standard"), kindRow("r4", "Dbox"), kindRow("r5", "Dbox"));
+      expect([...optimalSeatIds(rows)].sort()).toEqual([
+        "r4-3",
+        "r4-4",
+        "r4-5",
+        "r5-3",
+        "r5-4",
+        "r5-5",
+      ]);
+    });
+
+    // Measured on the seats a reader could actually book, or a sold-out block recommends nothing
+    it("falls back to the standard rows when every D-BOX seat in the window is taken", () => {
+      const rows = house(
+        kindRow("r3", "Standard"),
+        kindRow("r4", "Dbox", true),
+        kindRow("r5", "Dbox", true),
+      );
+      expect([...optimalSeatIds(rows)].sort()).toEqual(["r3-3", "r3-4", "r3-5"]);
+    });
+
+    /*
+     * The cliff, named so it stays a decision
+     *
+     * The fallback is what stops a sold-out block recommending nothing, and the price is that
+     * selling the last D-BOX seat makes the set larger rather than smaller. Measured on
+     * Vaughan AVX #11, whose window straddles the block, it is one seat against twenty
+     */
+    it("jumps from one D-BOX seat to the whole standard window when that seat sells", () => {
+      const almostSold = (label: string): SeatRow => ({
+        label,
+        physicalNumber: 1,
+        // Nine D-BOX seats, middle third 3 to 5, and only column 4 still free
+        seats: Array.from({ length: 9 }, (_, column) =>
+          seat(`${label}-${column}`, column, column !== 4, "Dbox"),
+        ),
+      });
+      const withOneFree = house(
+        kindRow("r3", "Standard"),
+        kindRow("r4", "Standard"),
+        almostSold("r5"),
+      );
+      expect([...optimalSeatIds(withOneFree)]).toEqual(["r5-4"]);
+
+      // ...and that last seat going takes the recommendation from one seat to six
+      const soldOut = house(
+        kindRow("r3", "Standard"),
+        kindRow("r4", "Standard"),
+        kindRow("r5", "Dbox", true),
+      );
+      expect([...optimalSeatIds(soldOut)].sort()).toEqual([
+        "r3-3",
+        "r3-4",
+        "r3-5",
+        "r4-3",
+        "r4-4",
+        "r4-5",
+      ]);
+    });
+
+    /*
+     * Two thirds back is still the rule: a block by the screen does not pull the window to it
+     *
+     * A guard rather than a mutation check on the preference, and named as one: with the
+     * D-BOX branch deleted the answer is the same, because no D-BOX seat is in the window
+     */
+    it("ignores a D-BOX block outside the window", () => {
+      const rows = [
+        kindRow("r0", "Dbox"),
+        kindRow("r1", "Dbox"),
+        kindRow("r2", "Standard"),
+        kindRow("r3", "Standard"),
+        kindRow("r4", "Standard"),
+        kindRow("r5", "Standard"),
+      ];
+      expect([...optimalSeatIds(rows)].sort()).toEqual([
+        "r3-3",
+        "r3-4",
+        "r3-5",
+        "r4-3",
+        "r4-4",
+        "r4-5",
+        "r5-3",
+        "r5-4",
+        "r5-5",
+      ]);
+    });
+  });
 });
 
 describe("gridColumnCount", () => {
