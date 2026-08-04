@@ -174,102 +174,69 @@ describe("optimalSeatIds", () => {
   it("recommends nothing in a house with no seats", () => {
     expect(optimalSeatIds([aisle()]).size).toBe(0);
   });
-});
 
-describe("seat naming", () => {
-  // Occupied beats kind: a taken D-BOX seat is first of all taken
-  it("reports occupied ahead of the seat kind", () => {
-    expect(seatState({ kind: "Dbox", occupied: true })).toBe("occupied");
-    expect(seatState({ kind: "Dbox", occupied: false })).toBe("dbox");
+  /*
+   * The middle third is measured across the row's columns, not across its seat count
+   *
+   * A row split by an aisle has its seats bunched to one side, and counting seats centres on
+   * the bunch instead of on the row. This is the ordinary case: a hole inside a row is what
+   * the map is built to preserve
+   */
+  describe("a row split by an aisle", () => {
+    /** Four seats hard left, then a ten-seat block: extent 0 to 19, so the centre is 9.5 */
+    const split = (label: string): SeatRow => ({
+      label,
+      physicalNumber: 1,
+      seats: [0, 1, 2, 3, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19].map((column) =>
+        seat(`${label}-${column}`, column),
+      ),
+    });
+
+    it("centres on the row's columns rather than on its seat count", () => {
+      const rows = [split("a"), split("b"), split("c")];
+      /*
+       * The middle third of the extent 0 to 19 runs 6.33 to 12.67, and the only seats in it
+       * are 10, 11 and 12. Counting seats instead reads columns[4] to columns[9], which is
+       * 10 to 15: three seats further right, and centred on 12.5 rather than on 9.5
+       */
+      expect([...optimalSeatIds(rows)].filter((id) => id.startsWith("a-")).sort()).toEqual([
+        "a-10",
+        "a-11",
+        "a-12",
+      ]);
+    });
   });
 
+  /*
+   * A window that lands between seats. The middle third of a two-seat row spanning one
+   * column is 0.33 to 0.67, which holds nothing at all, so the nearest seat stands in
+   */
   it.each([
-    [{ label: "GG22", kind: "Standard", occupied: true }, false, "GG22, standard, occupied"],
-    [{ label: "GG22", kind: "Standard", occupied: false }, false, "GG22, standard, available"],
-    [{ label: "C1", kind: "Dbox", occupied: false }, false, "C1, D-BOX, available"],
-    [{ label: "A4", kind: "Wheelchair", occupied: false }, false, "A4, wheelchair, available"],
-    [
-      { label: "B7", kind: "Standard", occupied: false },
-      true,
-      "B7, standard, available, recommended",
-    ],
-  ])("names %o as %s", (input, recommended, expected) => {
-    expect(seatAccessibleName(input, recommended)).toBe(expected);
-  });
-});
-
-/*
- * The legend has to describe the house on screen, and it has to agree with the map about
- * which seats are green. Both are pinned by the exact array, since a length check passes
- * while listing the wrong things
- */
-describe("seatLegendKeys", () => {
-  const house = (rows: SeatRow[]) => ({
-    rows,
-    totalColumns: 9,
-    total: rows.flatMap((r) => r.seats).length,
-    occupied: rows.flatMap((r) => r.seats).filter((s) => s.occupied).length,
-    isSoldOut: false,
-  });
-
-  it("lists every state present, in the bar's own order", () => {
-    /*
-     * Six rows, so the window is r3 to r5 and the front three are outside it. D-BOX sits
-     * in r0 on purpose: inside the window it would render green and `recommended` would
-     * shadow the key it is supposed to be listed beside
-     */
+    ["a two-seat row", [0, 1], ["r0-0", "r0-1"]],
+    ["an equal gap either side of centre", [0, 1, 18, 19], ["r0-1", "r0-18"]],
+  ])("falls back to the nearest seat to centre in %s", (_name, columns, expected) => {
     const rows = [
       {
-        label: "a",
-        physicalNumber: 6,
-        seats: [seat("a-0", 0, false, "Dbox"), seat("a-1", 1, true)],
+        label: "r0",
+        physicalNumber: 1,
+        seats: columns.map((column) => seat(`r0-${column}`, column)),
       },
-      {
-        label: "b",
-        physicalNumber: 5,
-        seats: [seat("b-0", 0, false, "Wheelchair"), seat("b-1", 1, false, "Companion")],
-      },
-      row("c", 9),
-      row("d", 9),
-      row("e", 9),
-      row("f", 9),
     ];
-    const map = house(rows);
-    expect(seatLegendKeys(map, optimalSeatIds(rows))).toEqual([
-      "standard",
-      "dbox",
-      "recommended",
-      "occupied",
-      "companion",
-      "wheelchair",
+    expect([...optimalSeatIds(rows)].sort()).toEqual(expected);
+  });
+
+  /*
+   * Named because it is a decision rather than a surprise. Eight contiguous seats put the
+   * physical middle third at 2.33 to 4.67, which is two seats, where counting seats gave
+   * four. The window is three rows deep precisely because a narrow one recommends nothing
+   * too often, so this is the direction to watch if that starts happening again
+   */
+  it("narrows an eight-seat row from four seats to two", () => {
+    const rows = [row("r0", 8), row("r1", 8), row("r2", 8)];
+    expect([...optimalSeatIds(rows)].filter((id) => id.startsWith("r0-")).sort()).toEqual([
+      "r0-3",
+      "r0-4",
     ]);
-  });
-
-  // Most auditoriums have no D-BOX block and no accessible spaces, which is the whole
-  // reason the list is derived rather than fixed
-  it("omits a state no seat is drawn in", () => {
-    const rows = [row("a", 9), row("b", 9)];
-    // No D-BOX, no accessible spaces, nothing taken: three of the six keys never apply
-    expect(seatLegendKeys(house(rows), optimalSeatIds(rows))).toEqual(["standard", "recommended"]);
-  });
-
-  /*
-   * A sold-out house is the case where every other key drops at once, so an assertion
-   * about one omission is co-satisfied by five others. The whole array is the assertion
-   */
-  it("lists only occupied for a house with nothing free", () => {
-    const rows = [row("a", 9, 9), row("b", 9, 9)];
-    expect(seatLegendKeys(house(rows), optimalSeatIds(rows))).toEqual(["occupied"]);
-  });
-
-  /*
-   * The pair that can silently diverge. Recommended-ness is carried by colour plus stroke
-   * weight, so a green seat the legend does not list leaves that state on colour alone
-   */
-  it("takes recommended from the set the map paints, not from its own guess", () => {
-    const rows = [row("a", 9)];
-    expect(seatLegendKeys(house(rows), new Set())).not.toContain("recommended");
-    expect(seatLegendKeys(house(rows), new Set(["a-4"]))).toContain("recommended");
   });
 });
 

@@ -5,7 +5,7 @@
  * Every threshold here is a boundary somebody will get wrong once
  */
 
-import type { SeatMap, SeatRow } from "@/lib/cineplex/types";
+import type { Seat, SeatMap, SeatRow } from "@/lib/cineplex/types";
 
 /** Matches `Meter`'s tone axis */
 export type CapacityTone = "safe" | "warning" | "danger";
@@ -86,6 +86,47 @@ const OPTIMAL_DEPTH = 0.67;
 const WINDOW_ROWS = 3;
 
 /**
+ * The seats in the physical middle third of a row
+ *
+ * Measured across the row's own columns, not across its seat count. A row split by an aisle
+ * has its seats bunched to one side, and a count-based window centres on the bunch: columns
+ * 0 to 3 and 10 to 19 put the ordinal middle third at 10 to 15, centred on 12.5, where the
+ * row's own centre is 9.5. A hole inside a row is what the map is built to preserve, so that
+ * is the ordinary case rather than an exotic one
+ *
+ * Row-local, which is unchanged: a short row is not centred on the same columns as a long
+ * one, so this does not measure against the house's width
+ *
+ * Computed over every seat in the row and filtered afterwards, so the geometry does not move
+ * because a seat sold. The nearest-to-centre fallback is for a window that lands between
+ * seats: a two-seat row spans one column, so its middle third is 0.33 to 0.67 and holds none
+ */
+function middleThird(row: SeatRow): Seat[] {
+  const columns = row.seats.map((seat) => seat.column);
+  const first = Math.min(...columns);
+  const last = Math.max(...columns);
+  const third = (last - first) / 3;
+  const inside = row.seats.filter(
+    (seat) => seat.column >= first + third && seat.column <= last - third,
+  );
+  if (inside.length > 0) return inside;
+
+  // Ties kept, so a row with an equal gap either side of centre offers both
+  const centre = (first + last) / 2;
+  const nearest = Math.min(...row.seats.map((seat) => Math.abs(seat.column - centre)));
+  return row.seats.filter((seat) => Math.abs(seat.column - centre) === nearest);
+}
+
+/**
+ * Free, and not a space allocated to someone who needs it
+ *
+ * Recommending an accessible space repaints it, and the green would replace the tone that
+ * says what the space is
+ */
+const isPickable = (seat: Seat) =>
+  !seat.occupied && seat.kind !== "Wheelchair" && seat.kind !== "Companion";
+
+/**
  * The seats worth recommending: middle of the three rows around two thirds back
  *
  * Three rows rather than one. Measured against ten real screenings at one theatre, a
@@ -93,14 +134,11 @@ const WINDOW_ROWS = 3;
  * house at 40% can easily have all seven taken. Three rows drops that to three in ten
  *
  * Centred on the target, and the window shrinks rather than sliding when a house has
- * fewer rows than that. Centre is the middle third of the columns that hold a seat in
- * that row, not of the auditorium's width, since a short row is not centred on the same
- * columns as a long one
+ * fewer rows than that
  */
 export function optimalSeatIds(rows: SeatRow[]): Set<string> {
   const populated = populatedRows(rows);
-  const ids = new Set<string>();
-  if (populated.length === 0) return ids;
+  if (populated.length === 0) return new Set();
 
   const rowCount = Math.min(WINDOW_ROWS, populated.length);
   const target = Math.round(OPTIMAL_DEPTH * populated.length);
@@ -109,25 +147,11 @@ export function optimalSeatIds(rows: SeatRow[]): Set<string> {
     populated.length - rowCount,
   );
 
-  for (const row of populated.slice(start, start + rowCount)) {
-    const columns = row.seats.map((seat) => seat.column).sort((a, b) => a - b);
-    const third = columns.length / 3;
-    const low = columns[Math.floor(third)] ?? columns[0];
-    const high = columns[Math.ceil(third * 2) - 1] ?? columns[columns.length - 1];
-    for (const seat of row.seats) {
-      // A taken seat is not a recommendation
-      if (seat.occupied) continue;
-      /*
-       * Nor an accessible space: recommending it repaints it, and the green would replace the
-       * tone that says what the space is
-       */
-      if (seat.kind === "Wheelchair" || seat.kind === "Companion") continue;
-      if (low !== undefined && high !== undefined && seat.column >= low && seat.column <= high) {
-        ids.add(seat.id);
-      }
-    }
-  }
-  return ids;
+  const picks = populated
+    .slice(start, start + rowCount)
+    .map((row) => middleThird(row).filter(isPickable));
+
+  return new Set(picks.flat().map((seat) => seat.id));
 }
 
 /** The legend rows, in the order the bar reads them */
