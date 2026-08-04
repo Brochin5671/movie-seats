@@ -36,6 +36,29 @@ export function populatedRows(rows: SeatRow[]): SeatRow[] {
 }
 
 /**
+ * Grid tracks wide enough for every seat in the house
+ *
+ * Each row is drawn as its own grid, and the rows line up only while they all declare the
+ * same track count. A seat past `totalColumns` opens implicit tracks, which widens that one
+ * row, and the centred column then re-centres it against the rest: the row slides sideways
+ * and its column 4 stops being above everyone else's
+ *
+ * Widening rather than clamping, because two seats forced into one cell overlap and one of
+ * them stops being readable at all. The floor of 1 is because `repeat()` takes an integer of
+ * 1 or more (CSS Grid Layout Level 1), so `repeat(0, ...)` drops the whole declaration and
+ * puts every seat on an implicit track: a layout that omits `totalColumns` projects to 0
+ */
+export function gridColumnCount(map: SeatMap): number {
+  let widest = map.totalColumns;
+  for (const row of map.rows) {
+    for (const seat of row.seats) {
+      if (seat.column + 1 > widest) widest = seat.column + 1;
+    }
+  }
+  return Math.max(widest, 1);
+}
+
+/**
  * Whether every seat still free is stuck near the screen
  *
  * Front means position, not label. Double letters do mark front rows where a house uses

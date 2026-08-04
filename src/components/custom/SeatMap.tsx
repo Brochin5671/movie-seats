@@ -13,7 +13,7 @@
  */
 
 import type { Seat, SeatMap as SeatMapData } from "@/lib/cineplex/types";
-import { seatAccessibleName, seatState } from "@/lib/seating";
+import { gridColumnCount, seatAccessibleName, seatState } from "@/lib/seating";
 import { cn } from "@/lib/utils";
 
 /** Upstream columns are 0-based; CSS grid lines start at 1 */
@@ -167,6 +167,8 @@ export interface SeatMapProps {
 }
 
 export function SeatMap({ map, recommended, className }: SeatMapProps) {
+  // Once for the whole house, because every row has to declare the same tracks to line up
+  const columns = gridColumnCount(map);
   /*
    * The map scrolls, the page does not. A flex child will not shrink under its content, so
    * without `min-w-0` the map is as wide as its widest row and the body's `overflow-x-clip`
@@ -211,7 +213,7 @@ export function SeatMap({ map, recommended, className }: SeatMapProps) {
                 // A fixed track rather than `minmax(0, …)`, so a column cannot
                 // collapse and overlap its neighbour when the house is wider than the
                 // screen
-                style={{ gridTemplateColumns: `repeat(${map.totalColumns}, 1.25rem)` }}>
+                style={{ gridTemplateColumns: `repeat(${columns}, 1.25rem)` }}>
                 {row.seats.map((seat) => (
                   <SeatCell key={seat.id} seat={seat} recommended={recommended.has(seat.id)} />
                 ))}

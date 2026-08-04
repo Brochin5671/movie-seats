@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { Seat, SeatRow } from "@/lib/cineplex/types";
+import type { Seat, SeatMap, SeatRow } from "@/lib/cineplex/types";
 import {
   capacityLabel,
   capacityTone,
+  gridColumnCount,
   isSeatingPoor,
   optimalSeatIds,
   seatAccessibleName,
@@ -172,6 +173,139 @@ describe("optimalSeatIds", () => {
 
   it("recommends nothing in a house with no seats", () => {
     expect(optimalSeatIds([aisle()]).size).toBe(0);
+  });
+});
+
+describe("seat naming", () => {
+  // Occupied beats kind: a taken D-BOX seat is first of all taken
+  it("reports occupied ahead of the seat kind", () => {
+    expect(seatState({ kind: "Dbox", occupied: true })).toBe("occupied");
+    expect(seatState({ kind: "Dbox", occupied: false })).toBe("dbox");
+  });
+
+  it.each([
+    [{ label: "GG22", kind: "Standard", occupied: true }, false, "GG22, standard, occupied"],
+    [{ label: "GG22", kind: "Standard", occupied: false }, false, "GG22, standard, available"],
+    [{ label: "C1", kind: "Dbox", occupied: false }, false, "C1, D-BOX, available"],
+    [{ label: "A4", kind: "Wheelchair", occupied: false }, false, "A4, wheelchair, available"],
+    [
+      { label: "B7", kind: "Standard", occupied: false },
+      true,
+      "B7, standard, available, recommended",
+    ],
+  ])("names %o as %s", (input, recommended, expected) => {
+    expect(seatAccessibleName(input, recommended)).toBe(expected);
+  });
+});
+
+/*
+ * The legend has to describe the house on screen, and it has to agree with the map about
+ * which seats are green. Both are pinned by the exact array, since a length check passes
+ * while listing the wrong things
+ */
+describe("seatLegendKeys", () => {
+  const house = (rows: SeatRow[]) => ({
+    rows,
+    totalColumns: 9,
+    total: rows.flatMap((r) => r.seats).length,
+    occupied: rows.flatMap((r) => r.seats).filter((s) => s.occupied).length,
+    isSoldOut: false,
+  });
+
+  it("lists every state present, in the bar's own order", () => {
+    /*
+     * Six rows, so the window is r3 to r5 and the front three are outside it. D-BOX sits
+     * in r0 on purpose: inside the window it would render green and `recommended` would
+     * shadow the key it is supposed to be listed beside
+     */
+    const rows = [
+      {
+        label: "a",
+        physicalNumber: 6,
+        seats: [seat("a-0", 0, false, "Dbox"), seat("a-1", 1, true)],
+      },
+      {
+        label: "b",
+        physicalNumber: 5,
+        seats: [seat("b-0", 0, false, "Wheelchair"), seat("b-1", 1, false, "Companion")],
+      },
+      row("c", 9),
+      row("d", 9),
+      row("e", 9),
+      row("f", 9),
+    ];
+    const map = house(rows);
+    expect(seatLegendKeys(map, optimalSeatIds(rows))).toEqual([
+      "standard",
+      "dbox",
+      "recommended",
+      "occupied",
+      "companion",
+      "wheelchair",
+    ]);
+  });
+
+  // Most auditoriums have no D-BOX block and no accessible spaces, which is the whole
+  // reason the list is derived rather than fixed
+  it("omits a state no seat is drawn in", () => {
+    const rows = [row("a", 9), row("b", 9)];
+    // No D-BOX, no accessible spaces, nothing taken: three of the six keys never apply
+    expect(seatLegendKeys(house(rows), optimalSeatIds(rows))).toEqual(["standard", "recommended"]);
+  });
+
+  /*
+   * A sold-out house is the case where every other key drops at once, so an assertion
+   * about one omission is co-satisfied by five others. The whole array is the assertion
+   */
+  it("lists only occupied for a house with nothing free", () => {
+    const rows = [row("a", 9, 9), row("b", 9, 9)];
+    expect(seatLegendKeys(house(rows), optimalSeatIds(rows))).toEqual(["occupied"]);
+  });
+
+  /*
+   * The pair that can silently diverge. Recommended-ness is carried by colour plus stroke
+   * weight, so a green seat the legend does not list leaves that state on colour alone
+   */
+  it("takes recommended from the set the map paints, not from its own guess", () => {
+    const rows = [row("a", 9)];
+    expect(seatLegendKeys(house(rows), new Set())).not.toContain("recommended");
+    expect(seatLegendKeys(house(rows), new Set(["a-4"]))).toContain("recommended");
+  });
+});
+
+describe("gridColumnCount", () => {
+  const at = (columns: number[]): SeatRow => ({
+    label: "a",
+    physicalNumber: 1,
+    seats: columns.map((column) => seat(`a-${column}`, column)),
+  });
+  const map = (totalColumns: number, rows: SeatRow[]): SeatMap => ({
+    rows,
+    totalColumns,
+    total: rows.flatMap((r) => r.seats).length,
+    occupied: 0,
+    isSoldOut: false,
+  });
+
+  it("declares the layout's own width when every seat fits inside it", () => {
+    expect(gridColumnCount(map(26, [at([0, 12, 25])]))).toBe(26);
+  });
+
+  /*
+   * Widening rather than clamping. Every row is drawn as its own grid and they line up only
+   * while the track counts match, so one row reaching past the declared width would open
+   * implicit tracks and slide sideways. Clamping instead would stack two seats in one cell
+   */
+  it("widens past the layout's own width to reach the furthest seat", () => {
+    expect(gridColumnCount(map(6, [at([0, 1]), at([0, 8])]))).toBe(9);
+  });
+
+  /*
+   * `repeat()` takes an integer of 1 or more, so `repeat(0, ...)` drops the declaration and
+   * every seat lands on an implicit track. A layout that omits `totalColumns` projects to 0
+   */
+  it("never declares fewer than one track", () => {
+    expect(gridColumnCount(map(0, []))).toBe(1);
   });
 });
 
