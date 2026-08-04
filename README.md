@@ -1,9 +1,23 @@
 # Movie Seats
 
+Live here: https://movie-seats.brochin5671.workers.dev
+
 See which seats are still available for a Cineplex showtime before you book.
 
-Pick a theatre and a movie, pick a showtime, and the page renders the auditorium's seat
-map with live availability, a capacity meter, and a legend. Mobile first.
+## Using it
+
+Pick a theatre, then a movie, then a showtime. The page draws that auditorium with every
+seat coloured by whether it is free, and marks the handful worth asking for: available,
+about two thirds back, in the middle of the row, and D-BOX where the house has it.
+
+The theatre list asks your browser for your location and puts the nearest cinema first,
+with the distance beside each name. The position stays in the browser; nothing is sent
+anywhere. Refuse the prompt and the list keeps the order Cineplex sent.
+
+Above the map, a meter reads how full the house is, and a warning appears when the only
+seats left are near the screen. The map refreshes itself every 30 seconds, pauses while
+the tab is in the background, and can be refreshed by hand from the control beside the
+word Capacity. Booking happens on Cineplex, through the link on the card.
 
 ## Running it
 
@@ -54,14 +68,40 @@ src/
 tests/           build, e2e, integration, and shared fixtures
 ```
 
-## How the data flows
+## How it works
 
-The browser never calls Cineplex. It calls this app's `/api/*` routes, which fetch
-upstream on the server, project the payload down to the shape the page needs, and
-cache the result. One upstream response runs to megabytes; none of that reaches a client.
+The browser never calls Cineplex. It calls this app's own routes on the Worker, which
+fetch upstream, narrow the payload to what the page needs, and cache the result. One
+upstream response runs to megabytes; none of that reaches a client.
 
-`src/lib/cineplex/projections.ts` is pure and imports nothing but types, which is what
-makes the awkward parts of the upstream format testable against literal fixtures.
+```mermaid
+flowchart LR
+  browser["Browser island<br/><small>SeatFinder</small>"] -->|"GET /api/*"| route["Worker route<br/><small>handlers.ts</small>"]
+  route --> guards["Guards<br/><small>params, rate limit, key</small>"]
+  guards --> cache["Cache<br/><small>per-URL, stale-if-error</small>"]
+  cache -->|hit| project
+  cache -->|miss| upstream["apis.cineplex.com"]
+  upstream --> project["Projections<br/><small>megabytes to kilobytes</small>"]
+  project -->|JSON| browser
+```
+
+| Route | Query | Returns |
+|---|---|---|
+| `/api/theatres` | none | `Theatre[]`: id, name, city, coordinates |
+| `/api/movies` | none | `Movie[]`: id, name, runtime, poster |
+| `/api/narrow/movies` | `theatreId` | `{ filmIds }`, what plays at one theatre |
+| `/api/narrow/theatres` | `filmId` | `{ theatreIds }`, where one film plays |
+| `/api/showtimes` | `theatreId`, `filmId` | `Session[]`: id, auditorium, start, experiences |
+| `/api/seats` | `theatreId`, `showtimeId` | `SeatMap`: rows of seats, each with a column and a state |
+
+A missing parameter is a 400, an unset API key a 503, and an upstream failure a 502. The
+shapes live in `src/lib/cineplex/types.ts`.
+
+`src/lib/cineplex/projections.ts` is where every awkward part of the upstream format is
+handled: one screening arrives once per format and is merged back, and a D-BOX block
+arrives with its own row index and its own column numbering and has to be placed into the
+house. It is pure and imports nothing but types, so all of that is testable against
+literal fixtures with no fetch and no mocks.
 
 An open seat map re-requests `/api/seats` every 30 seconds so it does not go stale, pauses
 while the tab is hidden, and can be refreshed by hand from the control beside the capacity
