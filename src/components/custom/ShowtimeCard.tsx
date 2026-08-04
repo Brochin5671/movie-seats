@@ -58,8 +58,14 @@ export function ShowtimeCard({ movie, theatre, session }: ShowtimeCardProps) {
   const whenLine = session
     ? `${formatDayLabel(session.start)} · ${formatTimeLabel(session.start)}`
     : null;
-  // The theatre stands on a line of its own, so this is a plain string
-  const where = theatre && session ? theatre.name : null;
+  /*
+   * The theatre stands on a line of its own, so this is a plain string
+   *
+   * A theatre and no session is a real state, not a half-filled one: the card is already on
+   * screen while the reader is still picking a time, and naming the venue then is what says
+   * which of the two selects has landed
+   */
+  const where = theatre ? theatre.name : null;
   /*
    * Upstream splits one screening across an experience group per format and `toSessions`
    * merges them back, so `formats` is already deduplicated. Rendered verbatim beside the
@@ -85,9 +91,12 @@ export function ShowtimeCard({ movie, theatre, session }: ShowtimeCardProps) {
    * Capped and centred rather than filling the column: the content is about 350px, and
    * stretched across 704px the card reads as a large empty element. A fixed cap also means a
    * long theatre name wraps instead of the card resizing under it
+   *
+   * `size="sm"` for the padding rather than utilities of its own: it is the primitive's own
+   * axis, taking the card to `py-4` from `py-6` and carrying `CardContent` to `px-4` with it
    */
   return (
-    <Card className="mx-auto w-full max-w-md bg-cinema-ink ring-cinema-clay/40">
+    <Card size="sm" className="mx-auto w-full max-w-md bg-cinema-ink ring-cinema-clay/40">
       <CardContent className="flex flex-row items-start gap-4">
         {/* Fixed width, and `shrink-0` so a long title cannot squeeze the poster */}
         <div className="w-24 shrink-0">
@@ -116,11 +125,11 @@ export function ShowtimeCard({ movie, theatre, session }: ShowtimeCardProps) {
         {/* `min-w-0` so a long title wraps instead of pushing the column past the card */}
         <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
           <p className="font-medium text-cinema-parchment">{movie.name}</p>
+          {/* The venue, directly under the title: where before when, because the theatre is
+              picked first and is the line that appears first */}
+          {where ? <p className="text-sm text-cinema-tan">{where}</p> : null}
           {/* Nothing at all until there is a showtime, rather than a placeholder */}
           {whenLine ? <p className="text-sm text-cinema-tan">{whenLine}</p> : null}
-          {/* The venue alone. It needs a session too, so the card never names a theatre
-              for a screening nobody has picked */}
-          {where ? <p className="text-sm text-cinema-tan">{where}</p> : null}
           {/*
            * The auditorium leads and the formats follow, because both describe the
            * screening rather than the venue. auditorium is free text upstream and is

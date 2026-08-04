@@ -40,23 +40,29 @@ const session: Session = {
 };
 
 describe("ShowtimeCard", () => {
-  it("shows the title, the theatre-local time, the venue and the screening", () => {
+  /*
+   * Every line, in order. `toHaveTextContent` on each one separately would pass with the
+   * venue and the time the other way round, and the order is what this case is about: the
+   * theatre is picked before the showtime, so it reads above it
+   */
+  it("shows the title, the venue, the theatre-local time and the screening in order", () => {
     const { container } = render(
       <ShowtimeCard movie={movie} theatre={theatre} session={session} />,
     );
-    expect(screen.getByText("Spider-Man: Brand New Day")).toBeInTheDocument();
-    // the wall clock as sent, never converted
-    expect(screen.getByText(/Sun Aug 2/)).toHaveTextContent("6:45 PM");
-    // the venue on a line of its own, so an exact match rather than a containment
-    expect(screen.getByText("Galaxy Cinemas Barrie")).toBeInTheDocument();
+    expect([...container.querySelectorAll("p")].map((line) => line.textContent)).toEqual([
+      "Spider-Man: Brand New Day",
+      "Galaxy Cinemas Barrie",
+      // the wall clock as sent, never converted
+      "Sun Aug 2 · 6:45 PM",
+      "Aud 12 · 3D · D-BOX",
+    ]);
     /*
-     * ...and the auditorium grouped with the formats on the next line. Read off the slot
-     * rather than by text: the whole line is what is being pinned, and the auditorium is
-     * free text upstream, rendered verbatim rather than parsed for a number
+     * ...and the auditorium is its own run inside that last line. Read off the slot rather
+     * than by text: it is free text upstream, rendered verbatim rather than parsed
      */
-    const auditorium = container.querySelector('[data-slot="showtime-auditorium"]');
-    expect(auditorium).toHaveTextContent("Aud 12");
-    expect(auditorium?.parentElement).toHaveTextContent("Aud 12 · 3D · D-BOX");
+    expect(container.querySelector('[data-slot="showtime-auditorium"]')).toHaveTextContent(
+      "Aud 12",
+    );
   });
 
   /*
@@ -95,13 +101,26 @@ describe("ShowtimeCard", () => {
    * showtime lands
    */
   describe("before a showtime is chosen", () => {
-    it("shows the poster and the title, and nothing where the details will go", () => {
+    /*
+     * The venue is already known here, so it renders: it is what says the theatre select has
+     * landed while the reader is still picking a time. Everything below it waits, because a
+     * placeholder would be text the reader has to read and discard
+     */
+    it("shows the poster, the title and the venue, and nothing below them", () => {
       const { container } = render(<ShowtimeCard movie={movie} theatre={theatre} session={null} />);
       expect(container.querySelector("img")).toHaveAttribute("src", movie.posterUrl);
-      expect(screen.getByText("Spider-Man: Brand New Day")).toBeInTheDocument();
-      // The title is the only line. A placeholder here would be text the reader has to
-      // read and discard before the real value replaces it
-      expect(container.querySelectorAll("p")).toHaveLength(1);
+      expect([...container.querySelectorAll("p")].map((line) => line.textContent)).toEqual([
+        "Spider-Man: Brand New Day",
+        "Galaxy Cinemas Barrie",
+      ]);
+    });
+
+    // ...and with neither picked the title still stands alone
+    it("shows the title alone when there is no theatre either", () => {
+      const { container } = render(<ShowtimeCard movie={movie} theatre={null} session={null} />);
+      expect([...container.querySelectorAll("p")].map((line) => line.textContent)).toEqual([
+        "Spider-Man: Brand New Day",
+      ]);
     });
 
     // Nothing to book yet, and a link to a screening that has not been chosen would go
@@ -113,19 +132,16 @@ describe("ShowtimeCard", () => {
       expect(screen.queryByRole("link")).not.toBeInTheDocument();
     });
 
-    /*
-     * A theatre-shaped hole with a real session, not both null: the `session` guard
-     * short-circuits first, so `theatre={null} session={null}` never evaluates the theatre
-     * check at all and deleting it would leave the case green
-     */
+    // A session with no theatre: everything the session alone can fill renders, and the
+    // venue line closes up rather than leaving a hole where it would have been
     it("survives a session with no theatre", () => {
       const { container } = render(<ShowtimeCard movie={movie} theatre={null} session={session} />);
-      // the time still renders, since it needs only the session...
-      expect(screen.getByText(/6:45 PM/)).toBeInTheDocument();
-      // ...while the line that needs both is simply absent, and there is nowhere to book
-      expect(screen.queryByText(/Galaxy Cinemas Barrie/)).not.toBeInTheDocument();
-      // title, time, and the screening line, which needs only the session as well
-      expect(container.querySelectorAll("p")).toHaveLength(3);
+      expect([...container.querySelectorAll("p")].map((line) => line.textContent)).toEqual([
+        "Spider-Man: Brand New Day",
+        "Sun Aug 2 · 6:45 PM",
+        "Aud 12 · 3D · D-BOX",
+      ]);
+      // ...and there is nowhere to book, since the link needs the theatre id
       expect(screen.queryByRole("link")).not.toBeInTheDocument();
     });
   });

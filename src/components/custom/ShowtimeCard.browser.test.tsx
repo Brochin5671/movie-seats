@@ -87,6 +87,26 @@ test("the card is short enough not to lead the page", async () => {
 });
 
 /*
+ * The padding comes from the primitive's own size axis, not from utilities on the card
+ *
+ * A range cannot see this: the bounds above are satisfied at either size, so the card sat
+ * unpinned at `py-6` while every test stayed green. `size="sm"` is 16px on all four edges
+ * against 24, which is 16px off the card's height and 16px off its content width
+ */
+test("the card carries the small size's padding", async () => {
+  const screen = await draw({ theatre, session });
+  await expect.element(screen.getByText(movie.name)).toBeVisible();
+
+  const card = screen.container.querySelector('[data-slot="card"]') as HTMLElement;
+  const content = screen.container.querySelector('[data-slot="card-content"]') as HTMLElement;
+  expect(card).toHaveAttribute("data-size", "sm");
+  const box = getComputedStyle(card);
+  expect([box.paddingTop, box.paddingBottom]).toEqual(["16px", "16px"]);
+  const inner = getComputedStyle(content);
+  expect([inner.paddingLeft, inner.paddingRight]).toEqual(["16px", "16px"]);
+});
+
+/*
  * ...and narrow enough not to read as an empty panel
  *
  * The content is about 350px of poster and text. Left to fill the 704px column the card
@@ -110,8 +130,8 @@ test("the card is capped and centred rather than filling the column", async () =
 });
 
 /*
- * The card appears on the movie alone and grows three lines when a showtime lands. The
- * poster is taller than the text column either way, so that growth must not move it
+ * The card appears with a movie and a venue and grows two more lines when a showtime lands.
+ * The poster is taller than the text column either way, so that growth must not move it
  */
 test("picking a showtime does not resize the card", async () => {
   const before = await draw({ theatre, session: null });
