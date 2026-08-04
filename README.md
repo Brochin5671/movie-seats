@@ -21,9 +21,10 @@ word Capacity. Booking happens on Cineplex, through the link on the card.
 
 ## Running it
 
-You need a Cineplex API key. It is the key Cineplex ships to its own browser, findable
-in DevTools on cineplex.com. It is not licensed to this project and Cineplex can rotate
-it at any time, at which point every call starts returning 401.
+You need a `CINEPLEX_API_KEY`. Cineplex runs no developer programme and issues no keys for
+one, so this project ships no value and will not tell you how to obtain one. Supply your
+own only if you are authorised to use it, and see [Status](#status) first. Whatever you
+supply can stop working at any time, at which point every call returns 401.
 
 ```bash
 pnpm install
@@ -112,6 +113,24 @@ Cineplex quota both have to absorb; `SECURITY.md` has the arithmetic.
 
 The map names the moment it last arrived rather than how old it is, so a refresh that stops
 working shows as a time that stops moving instead of a label that keeps sounding fresh.
+
+## Status
+
+Unofficial, and not affiliated with, endorsed by, or sponsored by Cineplex Entertainment LP.
+Cineplex publishes no developer API; this reads the undocumented endpoints their own site
+uses, and they can change or close them without notice. "Cineplex" and related marks belong
+to their owners and appear here only to say what this interoperates with.
+
+Cineplex's [Terms of Use](https://www.cineplex.com/policy/terms-of-use) grant a limited
+licence to use their content "for non-commercial purposes which are personal or educational",
+with attribution, and prohibit commercial use. That is the ceiling this project sits under,
+and it is why the licence below excludes commercial use as well. Running your own copy is
+your own decision and your own responsibility.
+
+The source is under the [PolyForm Noncommercial License 1.0.0](LICENSE). That is
+source-available rather than open source: the Open Source Definition does not allow a
+licence to bar commercial use, so calling it open source would be wrong. Read, run, fork and
+modify it for anything noncommercial.
 
 ## More
 
