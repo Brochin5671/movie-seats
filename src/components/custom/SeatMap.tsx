@@ -206,9 +206,14 @@ export function SeatMap({ map, recommended, className }: SeatMapProps) {
               <div key={`aisle-${index}`} aria-hidden="true" className="h-2" />
             ) : (
               <div
-                // physicalNumber, not label: it is unique per row, where an upstream
-                // label can be empty and two empties would collide
-                key={`row-${row.physicalNumber}`}
+                /*
+                 * Position, like the aisle above, and for the same reason: it is the only
+                 * thing a row is guaranteed to have. `physicalNumber` restarts at 1 in every
+                 * upstream area, and while the projection now keeps the standard area's on a
+                 * merged row, an overlay that lands past the end of the list is appended
+                 * with its own. Two rows numbered the same reconcile as one child
+                 */
+                key={`row-${index}`}
                 className="grid gap-px"
                 // A fixed track rather than `minmax(0, …)`, so a column cannot
                 // collapse and overlap its neighbour when the house is wider than the

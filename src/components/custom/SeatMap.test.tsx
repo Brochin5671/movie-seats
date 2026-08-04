@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Seat, SeatMap as SeatMapData } from "@/lib/cineplex/types";
 import { optimalSeatIds } from "@/lib/seating";
 import { SeatMap } from "./SeatMap";
@@ -95,6 +95,29 @@ describe("SeatMap", () => {
     // 0-based upstream, 1-based in CSS
     expect(screen.getByRole("img", { name: /A1,/ })).toHaveStyle({ gridColumnStart: "1" });
     expect(screen.getByRole("img", { name: /A9,/ })).toHaveStyle({ gridColumnStart: "5" });
+  });
+
+  /*
+   * `physicalNumber` restarts at 1 in every upstream area. The projection keeps the standard
+   * area's on a merged row, so a normal house no longer produces a duplicate, but an overlay
+   * landing past the end of the list is appended carrying its own: that is the shape below.
+   * Keyed by the number, React reconciles the pair as one child
+   *
+   * The warning is the assertion rather than a proxy for it, because React does render both
+   * rows on the first pass and only diverges once a refresh re-reconciles them
+   */
+  it("keys rows so two areas numbered from one do not collide", () => {
+    const warn = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { container } = render(
+      <Seats
+        map={map([
+          { label: "A", physicalNumber: 1, seats: [seat("A1", 0)] },
+          { label: "G", physicalNumber: 1, seats: [seat("G1", 1)] },
+        ])}
+      />,
+    );
+    expect(warn.mock.calls.flat().join(" ")).not.toMatch(/same key/i);
+    expect(container.querySelectorAll('[data-slot="seat"]')).toHaveLength(2);
   });
 
   it("renders an aisle as a gap with no seats", () => {
