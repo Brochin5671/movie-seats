@@ -29,6 +29,15 @@ const Legend = ({ map }: { map: SeatMapData }) => (
   <SeatLegend map={map} recommended={optimalSeatIds(map.rows)} />
 );
 
+/** One available standard seat, for the cases that build a row by hand */
+const cell = (id: string, column: number) => ({
+  id,
+  label: id,
+  column,
+  kind: "Standard" as const,
+  occupied: false,
+});
+
 const house = (rows: number, seatsPerRow: number, totalColumns: number): SeatMapData => ({
   rows: Array.from({ length: rows }, (_, r) => ({
     label: `R${r}`,
@@ -184,6 +193,53 @@ test("a wide house is reachable at both ends", async () => {
   scroller.scrollLeft = scroller.scrollWidth - scroller.clientWidth;
   expect(last.getBoundingClientRect().right).toBeLessThanOrEqual(
     scroller.getBoundingClientRect().right,
+  );
+});
+
+/*
+ * Every row is drawn as its own grid, and the house lines up only while they all declare the
+ * same track count
+ *
+ * A seat past `totalColumns` opens implicit tracks, which widens that one row, and
+ * `items-center` on the column then re-centres it against the rest: the row slides sideways
+ * and its column 1 stops being above everyone else's. That is what a D-BOX block numbered
+ * against its own area used to do, and nothing in any tier measured it. Row A is the short
+ * one, so the mutation moves the row that carries the assertions
+ */
+test("a column lands at the same x in every row", async () => {
+  await page.viewport(DESKTOP.width, DESKTOP.height);
+  const wide: SeatMapData = {
+    rows: [
+      { label: "A", physicalNumber: 2, seats: [cell("A0", 0), cell("A1", 1), cell("A2", 2)] },
+      { label: "B", physicalNumber: 1, seats: [cell("B0", 0), cell("B1", 1), cell("B8", 8)] },
+    ],
+    totalColumns: 3,
+    total: 6,
+    occupied: 0,
+    isSoldOut: false,
+  };
+  const screen = await render(<Seats map={wide} />);
+  await expect.element(screen.getByRole("img", { name: /^B8,/ })).toBeVisible();
+
+  const left = (label: string) =>
+    (
+      screen.container.querySelector(`[aria-label^="${label},"]`) as HTMLElement
+    ).getBoundingClientRect().left;
+
+  // the premise: the rows hold different columns, so equal x is not free
+  expect(left("A2")).not.toBe(left("B8"));
+  expect(left("A0")).toBe(left("B0"));
+  expect(left("A1")).toBe(left("B1"));
+
+  /*
+   * ...and both grids really declare the widened count, which is what makes that true. Nine
+   * tracks from a seat at column 8, against the three the layout claimed
+   */
+  const grids = [
+    ...screen.container.querySelectorAll<HTMLElement>('[data-slot="seat-scroller"] .grid'),
+  ];
+  expect(grids.map((grid) => getComputedStyle(grid).gridTemplateColumns.split(" ").length)).toEqual(
+    [9, 9],
   );
 });
 
