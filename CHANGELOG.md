@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 Releases are managed by [semantic-release](https://github.com/semantic-release/semantic-release) using the [conventionalcommits](https://www.conventionalcommits.org) preset; new entries are auto-generated from commit messages.
 
+## [1.0.0](https://github.com/Brochin5671/movie-seats/compare/v0.2.0...v1.0.0) (2026-08-04)
+
+### ⚠ BREAKING CHANGES
+
+* **seat-finder:** `Theatre.latitude` and `Theatre.longitude` in the `/api/theatres`
+response are now `number | null`. They were always a number, with an absent location
+coerced to 0, which is a real coordinate off West Africa rather than a missing one.
+A client reading them must handle null.
+* **seat-map:** `Seat.column` in the `/api/seats` response is now measured across
+the whole house, with each area's own offset already applied. It used to be copied
+from upstream unchanged, where it is measured against the area the seat sits in, so
+every D-BOX seat reported a column it did not occupy. A client that drew the old
+value against `totalColumns` was drawing the wrong grid.
+
+### Features
+
+* **home:** add the compact masthead ([fb4e33a](https://github.com/Brochin5671/movie-seats/commit/fb4e33a4a9f312720829d1036fa491d6e67e6ac5))
+* **seat-finder:** order the theatres by how far away they are ([cb893c3](https://github.com/Brochin5671/movie-seats/commit/cb893c3665317012808e369190afd11fb9323fc7))
+* **seating:** prefer D-BOX seats when recommending ([cf19c13](https://github.com/Brochin5671/movie-seats/commit/cf19c1303806a6bdb41dd221738719e66211f433))
+* **showtime-card:** lead with the venue and tighten the card ([a5f64b5](https://github.com/Brochin5671/movie-seats/commit/a5f64b5b24323e6088a4d176ad98247db7e750e3))
+
+### Fixes
+
+* **seat-map:** keep every row on the same grid tracks ([bf3fcae](https://github.com/Brochin5671/movie-seats/commit/bf3fcae06353290cb624fce37259ec6723480db4))
+* **seat-map:** key rows by position, not by area-local number ([4f27e96](https://github.com/Brochin5671/movie-seats/commit/4f27e96fb0ee14d33cfc3f730be3dbd595a57579))
+* **seat-map:** place a D-BOX block where the layout puts it ([d418c92](https://github.com/Brochin5671/movie-seats/commit/d418c92d7bc22d34b345354b6e6ed151897fc9c7))
+* **seating:** centre the recommendation on the row's own columns ([14d3ebb](https://github.com/Brochin5671/movie-seats/commit/14d3ebb923ce0112b8c0138b95097ec1f4b0fc03))
+
+### Documentation
+
+* bring the reference files in step with this round ([783d4af](https://github.com/Brochin5671/movie-seats/commit/783d4af546d65c7c67f8defb418b1303eb4bfbc7))
+* **readme:** explain how the site works and how to use it ([45272cb](https://github.com/Brochin5671/movie-seats/commit/45272cb30344d4fbd7ef6b12ea9da74a4520b665))
+
 ## [0.2.0](https://github.com/Brochin5671/movie-seats/compare/v0.1.0...v0.2.0) (2026-08-04)
 
 ### Features
