@@ -151,7 +151,26 @@ export function optimalSeatIds(rows: SeatRow[]): Set<string> {
     .slice(start, start + rowCount)
     .map((row) => middleThird(row).filter(isPickable));
 
-  return new Set(picks.flat().map((seat) => seat.id));
+  /*
+   * D-BOX takes the whole recommendation wherever the window offers one, because a reclining
+   * seat in the right part of the house beats a fixed one beside it
+   *
+   * Measured on the pickable seats, so a window whose D-BOX seats are all sold falls back to
+   * the standard rows rather than recommending nothing. That fallback is a cliff, and it is
+   * the cost of the rule rather than a defect in it: replayed over the real Vaughan AVX #11
+   * layout with an otherwise empty house, one free D-BOX seat recommends exactly that seat
+   * and selling it recommends twenty standard ones. Selling a seat makes the set larger,
+   * which reads backwards, and is the price of saying the best seat is the best seat. Pinned
+   * by name in `seating.test.ts`, at the smaller numbers a literal fixture can carry
+   *
+   * Kind reaches a seat from the area its row belongs to, unless the seat is a wheelchair or
+   * companion space, which carry their own. So the filter is per seat but behaves per row in
+   * every house measured: an overlaid row's middle third has been entirely D-BOX in all four
+   */
+  const dbox = picks.map((seats) => seats.filter((seat) => seat.kind === "Dbox"));
+  const chosen = dbox.some((seats) => seats.length > 0) ? dbox : picks;
+
+  return new Set(chosen.flat().map((seat) => seat.id));
 }
 
 /** The legend rows, in the order the bar reads them */
