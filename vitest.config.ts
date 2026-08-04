@@ -55,9 +55,14 @@ export default defineConfig({
       include: ["src/lib/**", "src/components/**/*.tsx"],
       exclude: ["src/components/**/*.astro", "**/*.test.*"],
       /*
-       * CONFIGURE: a baseline, not a mandate. Each floor sits four to five points under
-       * measured (91.96 / 88.10 / 87.60 / 94.32), so a refactor keeps headroom while a
-       * real regression fails the CI `tests` job. Re-measure with `pnpm test:coverage`
+       * CONFIGURE: a baseline, not a mandate. The floors sit under measured on purpose, so a
+       * refactor can move without going red while a real regression still fails the CI
+       * `tests` job. Last measured at 92.49 / 89.50 / 88.84 / 94.73
+       *
+       * Restate that reading when it moves and leave the floors alone unless a measurement
+       * demands it. No gap is written out here: every previous attempt to name one went stale
+       * the next time a test was added, and a stale derivation is the thing this file's own
+       * rules warn about. Re-measure with `pnpm test:coverage`
        *
        * Up from 82 / 80 / 74 / 83 after the library prune: what is left is almost all code
        * this site renders, so the ratio of tested to shipped went up without a test being
