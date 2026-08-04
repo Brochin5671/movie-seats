@@ -67,8 +67,8 @@ test.describe("Seat finder", () => {
     const card = page.locator('[data-slot="card"]');
     await expect(card.locator("p")).toHaveText([
       "Spider-Man: Brand New Day",
-      "Sun Aug 2 · 6:45 PM",
       "Galaxy Cinemas Barrie",
+      "Sun Aug 2 · 6:45 PM",
       "Aud 12 · 3D · D-BOX",
     ]);
 
