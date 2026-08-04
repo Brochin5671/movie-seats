@@ -51,7 +51,7 @@ tests. See Library vs Consumer Boundary below for the full split.
 
 ### Commands
 
-Most-used scripts. Run `pnpm run` for the full list (check:secrets, check:sast, check:deps, format, generate-types, generate:og, test:coverage, test:watch, etc.).
+Most-used scripts. Run `pnpm run` for the full list (check:secrets, check:sast, check:deps, format, generate-types, test:coverage, test:watch, etc.).
 
 | Command | Purpose |
 |---------|---------|

@@ -31,7 +31,6 @@ That is deliberate: an unset key is an operator problem, not an empty result.
 | `pnpm test:browser` | Real-browser component tests |
 | `pnpm test:e2e` | End-to-end and accessibility tests (needs a build first) |
 | `pnpm preflight` | The full pipeline, in CI order |
-| `pnpm generate:og` | Re-render `public/og-logo.png` after changing the tagline or the palette |
 
 Run `pnpm run` for the rest.
 
@@ -52,7 +51,6 @@ src/
   pages/
     api/         the six internal routes the browser talks to
   styles/        global.css: design tokens and the base layer
-scripts/         generate-og-logo.mjs, the only build artifact kept in the repo
 tests/           build, e2e, integration, and shared fixtures
 ```
 

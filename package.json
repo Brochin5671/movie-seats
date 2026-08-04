@@ -56,7 +56,6 @@
     "preflight:build": "pnpm run build && pnpm run test:build",
     "preflight:e2e": "pnpm run test:e2e",
     "preflight": "pnpm run preflight:security && pnpm run preflight:quality && pnpm run preflight:unit && pnpm run preflight:browser && pnpm run preflight:build && pnpm run preflight:e2e",
-    "generate:og": "node scripts/generate-og-logo.mjs",
     "generate-types": "wrangler types",
     "prepare": "test -d .git && lefthook install || true"
   },
