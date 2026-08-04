@@ -8,9 +8,10 @@
 
 import type {
   RawMovie,
+  RawSeat,
+  RawSeatArea,
   RawSeatAvailability,
   RawSeatLayout,
-  RawSeatRow,
   RawShowtimeTheatre,
   RawTheatre,
   RawTheatres,
@@ -125,39 +126,95 @@ export function theatreIdsFrom(raw: RawShowtimeTheatre[] | null): number[] {
   return [...new Set((raw ?? []).map((theatre) => theatre.theatreId))];
 }
 
-/*
- * Areas in render order, screen first
+/** A seat carrying the kind its area gives it and its column in the house's coordinates */
+interface PlacedSeat {
+  seat: RawSeat;
+  kind: SeatKind;
+  column: number;
+}
+
+interface PlacedRow {
+  label: string | null;
+  physicalNumber: number;
+  seats: PlacedSeat[];
+}
+
+/**
+ * Where an area's own column 0 sits in the house
  *
- * `top` is a row index rather than a pixel offset, so a non-standard block splices into
- * the standard list at that position. Splicing is what keeps row labels alphabetically
- * continuous (`... E F G H ... I`) and makes the row counts sum to `totalRows`
+ * A seat's `column` is measured against its own area, so every D-BOX block arrives starting
+ * at 0 and drew hard against the left wall. `left` is the house column the block begins at
+ *
+ * The block is then centred on the space it owns rather than pinned to `left`, because
+ * D-BOX chairs are wider than standard ones: `columnCount` seats cover `areaWidth` house
+ * columns, 16 over 20 at Scotiabank Toronto. This grid has one cell size, so the block is
+ * drawn `columnCount` cells wide, and its true centre `left + areaWidth / 2` puts the first
+ * of them half a count earlier. That lands within half a column of the real centre in all
+ * four auditoriums measured, against up to three and a half columns out if it were pinned
+ *
+ * Contiguous rather than spaced out at the true pitch: a cell this map skips reads as no
+ * seat there, and inventing four holes inside a D-BOX block is worse than drawing it narrow
+ *
+ * Rounded, and that is load-bearing rather than tidy: Vaughan AVX #11 leaves three columns
+ * of slack over eleven seats, so the offset is 11.5 and every seat in the block would get a
+ * fractional `grid-column-start`. React writes it unitless, the declaration is invalid, and
+ * the browser drops the whole inline style: eleven seats fall into auto-placement
+ *
+ * Floored at zero for the same class of reason. A column below zero is not a missing seat,
+ * it is a wrong one: `grid-column-start: 0` is invalid and auto-places, while a negative is
+ * valid and counts back from the end of the grid, drawing the block at the far right
  */
-function orderedRows(layout: RawSeatLayout): { row: RawSeatRow; kind: SeatKind }[] {
-  const rows = (layout.standardSeats?.rows ?? []).map((row) => ({
-    row,
-    kind: "Standard" as SeatKind,
-  }));
+function columnOffset(area: RawSeatArea | null | undefined): number {
+  const centred = (area?.left ?? 0) + ((area?.areaWidth ?? 0) - (area?.columnCount ?? 0)) / 2;
+  return Math.max(0, Math.round(centred));
+}
 
-  const extra = (
-    [
-      [layout.dboxSeats, "Dbox"],
-      [layout.balconySeats, "Standard"],
-    ] as const
-  )
-    .filter(([area]) => (area?.rows ?? []).length > 0)
-    /*
-     * Descending `top`, because each splice shifts the indices every later one is
-     * measured against. Inserting a two-row D-BOX block at 1 before a balcony block at
-     * 4 lands the balcony two rows too close to the screen; going back to front means
-     * every index still refers to the list the layout described
-     */
-    .sort((a, b) => (b[0]?.top ?? 0) - (a[0]?.top ?? 0));
+/**
+ * Every row of the house, screen first, with each area's seats merged into it
+ *
+ * A non-standard area overlays `standardSeats.rows` at `top` rather than splicing in front
+ * of it. Splicing rendered the placeholder row it lands on as an aisle **and** the block
+ * beside it, and at Scotiabank Toronto it drew row O twice: once as the seven standard
+ * seats at the wall, once as the sixteen D-BOX seats in the middle
+ *
+ * `top` is floored at zero. Unfloored, a negative one puts the block's first row past the
+ * back of the house and merges its second into the front row, so the block is split across
+ * the auditorium and reversed. There is no ceiling to match it: one past the end simply
+ * misses and is appended below, and every row after it misses for the same reason, so the
+ * block arrives intact. Neither direction has been observed
+ */
+function placedRows(layout: RawSeatLayout): PlacedRow[] {
+  const place = (area: RawSeatArea | null | undefined, kind: SeatKind): PlacedRow[] => {
+    const offset = columnOffset(area);
+    return (area?.rows ?? []).map((row) => ({
+      label: blank(row.label),
+      physicalNumber: row.physicalNumber,
+      seats: (row.seats ?? []).map((seat) => ({ seat, kind, column: offset + seat.column })),
+    }));
+  };
 
-  for (const [area, kind] of extra) {
-    const block = (area?.rows ?? []).map((row) => ({ row, kind: kind as SeatKind }));
-    const at = Math.min(Math.max(area?.top ?? rows.length, 0), rows.length);
-    rows.splice(at, 0, ...block);
+  const rows = place(layout.standardSeats, "Standard");
+
+  for (const [area, kind] of [
+    [layout.dboxSeats, "Dbox"],
+    [layout.balconySeats, "Standard"],
+  ] as const) {
+    // Rounded because upstream sends it as a float, `18.0` rather than `18`
+    const top = Math.max(Math.round(area?.top ?? 0), 0);
+    place(area, kind).forEach((overlay, index) => {
+      const base = rows[top + index];
+      if (!base) {
+        rows.push(overlay);
+        return;
+      }
+      // The row held open for a block carries no label of its own, so the block names it
+      base.label ??= overlay.label;
+      base.seats.push(...overlay.seats);
+    });
   }
+
+  // Reading order, which upstream already gives inside an area but not across two of them
+  for (const row of rows) row.seats.sort((a, b) => a.column - b.column);
   return rows;
 }
 
@@ -201,8 +258,8 @@ export function toSeatMap(
   /** Layout seats the availability map actually had an answer for */
   let matched = 0;
 
-  for (const { row, kind } of orderedRows(layout ?? ({} as RawSeatLayout))) {
-    const seats: Seat[] = (row.seats ?? []).map((seat) => {
+  for (const row of placedRows(layout ?? ({} as RawSeatLayout))) {
+    const seats: Seat[] = row.seats.map(({ seat, kind, column }) => {
       const isOccupied = statuses[seat.id] !== "Available";
       if (seat.id in statuses) matched += 1;
       total += 1;
@@ -210,7 +267,7 @@ export function toSeatMap(
       return {
         id: seat.id,
         label: seat.label,
-        column: seat.column,
+        column,
         kind: seatKind(seat.type, kind),
         occupied: isOccupied,
       };

@@ -53,7 +53,13 @@ export interface Seat {
   id: string;
   /** "GG22" */
   label: string;
-  /** 0-based against `SeatMap.totalColumns` */
+  /**
+   * 0-based across the whole house, with every area's own offset already applied
+   *
+   * Not what upstream sends: there a column is measured against the area the seat sits in.
+   * A row can therefore hold seats from two areas, and can reach past `totalColumns` if a
+   * layout ever misreports its own width
+   */
   column: number;
   kind: SeatKind;
   occupied: boolean;
@@ -62,6 +68,7 @@ export interface Seat {
 export interface SeatRow {
   /** null on an aisle */
   label: string | null;
+  /** Restarts per area upstream, so two rows in one map can share it. Not a key */
   physicalNumber: number;
   /** Empty on an aisle */
   seats: Seat[];
