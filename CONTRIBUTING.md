@@ -84,7 +84,7 @@ ci: add release dry-run job
   BREAKING CHANGE: Node 24 LTS is now the minimum.
   ```
 
-Either form bumps the **minor** version under semantic-release, not the major: `.releaserc.json` overrides the preset with `{ "breaking": true, "release": "minor" }`, which is the pre-1.0 convention and stays correct at 0.x. Nothing in that config can emit a major, so the project walks 0.1.0 -> 0.2.0 -> 0.3.0 until the rule is deleted, and deleting it is what declares 1.0. The footer form gives reviewers a description of the break in the release notes; the marker form is shorter. Use whichever fits. See the squash-merge caveat under "Merge strategy" for how breaking-change footers behave through GitHub's squash.
+Either form bumps the **major** version. `.releaserc.json` used to override the preset with `{ "breaking": true, "release": "minor" }`, which is the pre-1.0 convention and kept the project walking 0.1.0 -> 0.2.0 while its shape was still moving. That rule was deleted for 1.0, which is what declaring 1.0 means here: a break now costs a major, so think before writing the footer. The footer form gives reviewers a description of the break in the release notes; the marker form is shorter. Use whichever fits. See the squash-merge caveat under "Merge strategy" for how breaking-change footers behave through GitHub's squash.
 
 Rules:
 - Present tense, imperative mood: "add feature" not "added feature".
@@ -205,7 +205,7 @@ flowchart TB
   breaking{"BREAKING CHANGE<br/>or feat!:?"}
   feat{"feat:?"}
   fix{"fix: / perf: / revert: / refactor:<br/>or scope=deps?"}
-  bumpMajor["<b>MINOR bump</b><br/><small>BREAKING CHANGE / feat!:<br/>overridden from major, pre-1.0</small>"]:::release
+  bumpMajor["<b>MAJOR bump</b><br/><small>BREAKING CHANGE / feat!:</small>"]:::release
   bumpMinor["<b>MINOR bump</b><br/><small>feat:</small>"]:::release
   bumpPatch["<b>PATCH bump</b>"]:::release
   noBump["<b>No release</b><br/><small>chore: / docs: / style: / test: / ci: / build:</small>"]:::skip
@@ -235,8 +235,7 @@ semantic-release manages versions automatically based on commit types
 - `fix:`, `perf:`, `revert:` → PATCH (1.0.0 → 1.0.1)
 - Any type with `deps` scope (e.g. `chore(deps):`, used by Dependabot)
   → PATCH
-- `BREAKING CHANGE:` in body or `feat!:` → MINOR (0.1.0 → 0.2.0), overridden from the
-  preset's major by `.releaserc.json` while the project is pre-1.0
+- `BREAKING CHANGE:` in body or `feat!:` → MAJOR (1.0.0 → 2.0.0)
 - `refactor:` → PATCH, also from `.releaserc.json` rather than the preset
 - All other types (`chore:`, `docs:`, `style:`, `test:`, `ci:`, `build:`) → no release
 
