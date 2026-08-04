@@ -1,14 +1,20 @@
 ---
 import { SeatFinder } from "@/components/custom/SeatFinder";
+import SeatMark from "@/components/custom/SeatMark.astro";
 import { Container } from "@/components/layouts/Container";
 import { Main } from "@/components/layouts/Main";
+import { Stack } from "@/components/layouts/Stack";
 import Layout from "@/layouts/Layout.astro";
-import { pageMeta } from "@/lib/site-config";
+import { pageMeta, site } from "@/lib/site-config";
 
 /*
- * No header and no footer, per the design. `Main` stays: it is the `main` landmark and
- * the skip-link target. The only heading is screen-reader-only, because the three
- * selects are the page and a visible title would only repeat the tab
+ * A mark and the tagline above the selects, and no navigation at all: there is one page,
+ * so a bar of links would point back at itself. `Main` is the `main` landmark and the
+ * skip-link target
+ *
+ * The heading stays screen-reader-only. The tagline is decoration rather than a title, and
+ * promoting it to the `h1` would leave the page's only heading disagreeing with the tab.
+ * The mark is `aria-hidden` in its own file, so this whole block adds nothing to read
  *
  * `client:load` rather than `client:visible`: the island is the entire above-the-fold
  * content, so deferring it would only delay the one thing the reader came for
@@ -23,6 +29,10 @@ import { pageMeta } from "@/lib/site-config";
   <Main className="py-6">
     <h1 class="sr-only">Movie Seats</h1>
     <Container size="narrow">
+      <Stack gap="xs" align="center" className="mb-6">
+        <SeatMark class="size-8 text-cinema-tan" />
+        <p class="text-sm text-cinema-tan">{site.tagline}</p>
+      </Stack>
       <SeatFinder client:load />
     </Container>
   </Main>
