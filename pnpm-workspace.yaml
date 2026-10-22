@@ -28,12 +28,14 @@ overrides:
   '@cloudflare/vite-plugin': ^1.42.1
   # CVE-2026-59869 (HIGH): js-yaml DoS via crafted YAML documents.
   # https://avd.aquasec.com/nvd/cve-2026-59869
+  # Raised to 4.3.2 for CVE-2026-84375 (HIGH, another parser DoS) and GHSA-5p4m-2wfm-xmqj
+  # (HIGH, quadratic CPU in !!omap resolution).
   # Transitive only (astro internals, commitlint via cosmiconfig); nothing here
   # imports it directly. 4.3.0 shipped 2026-06-26, so it clears pnpm 11's
   # minimumReleaseAge cooldown and this override actually applies, unlike the
   # fixes deferred in .trivyignore. Caret, not >=, so it cannot drift onto the
   # v5 major inside Astro internals.
-  js-yaml: ^4.3.0
+  js-yaml: ^4.3.2
   # Dev/build-time audit advisories, no production impact (runtime is workerd)
   # Caret so pnpm unifies upward without downgrading a healthy copy
   #
@@ -43,9 +45,13 @@ overrides:
   # does not: a yaml 2.7.1 copy returns, below its floor. So these are redundant
   # for a new install and still load-bearing as floors for an existing one. Keep
   # them until the flagged transitives declare ranges that cannot go back under
-  svgo: ^4.0.2 # GHSA-2p49-hgcm-8545 (svgo <4.0.2, via the astro build)
-  # GHSA-v2hh-gcrm-f6hx + 4c8g-83qw-93j6 + CVE-2026-18446 (via @astrojs/check, commitlint)
-  fast-uri: ^3.1.5
+  # GHSA-2p49-hgcm-8545, then CVE-2026-84370 (HIGH): script execution through an executable
+  # link svgo failed to strip (svgo <4.1.0, via the astro build)
+  svgo: ^4.1.0
+  # GHSA-v2hh-gcrm-f6hx + 4c8g-83qw-93j6 + CVE-2026-18446, then CVE-2026-75899, -75931,
+  # -75975, -76172 and -84292 (HIGH): SSRF and host confusion in URI parsing (fast-uri <3.1.7,
+  # via ajv in commitlint and @astrojs/check)
+  fast-uri: ^3.1.7
   yaml: ^2.8.3 # GHSA-48c2-rrv3-qjmp (yaml <2.8.3, via @astrojs/check)
   postcss: ^8.5.18 # GHSA-r28c-9q8g-f849 (postcss <8.5.18, via astro-expressive-code and vite)
   # CVE-2026-13697 (HIGH): undici's cache interceptor mishandles a malformed
@@ -60,5 +66,27 @@ overrides:
   # Dev and CI only, with no production impact: the runtime is workerd, miniflare is the
   # local test runtime, cheerio parses HTML in the build tier, and semantic-release talks to
   # the GitHub API from the release job.
-  # 7.29.0 shipped 2026-07-24, so it clears pnpm 11's minimumReleaseAge cooldown
-  undici@^7: ^7.29.0
+  # 7.29.0 shipped 2026-07-24, so it clears pnpm 11's minimumReleaseAge cooldown.
+  # Raised to 7.29.1 for CVE-2026-19534 (HIGH, DoS via an unrequested WebSocket subprotocol)
+  # and CVE-2026-84961 (HIGH, TLS certificate validation bypass in BalancedPool)
+  undici@^7: ^7.29.1
+  # CVE-2026-73088 + CVE-2026-73089 (HIGH): browserslist prototype pollution and unbounded
+  # memory growth, both DoS (via @babel/core under @astrojs/react's plugin-react)
+  browserslist: ^4.28.7
+  # CVE-2026-67213 (HIGH): nanoid infinite loop in ID generation (via postcss, under vite and
+  # astro-expressive-code). Caret keeps it on the 3.x line postcss asks for
+  nanoid: ^3.3.18
+  # CVE-2026-85730 (HIGH): smol-toml DoS via malformed TOML (via the @astrojs/internal-helpers
+  # copy that @astrojs/cloudflare and @astrojs/react pin; astro's own copy is already fixed)
+  smol-toml: ^1.7.1
+  # CVE-2026-93749 (HIGH): source-map-js DoS via a malformed indexed source map (via postcss,
+  # css-tree, magicast and @tailwindcss/node)
+  source-map-js: ^1.2.2
+  # CVE-2026-112942 (HIGH): command injection through launch-editor's file path handling in
+  # the dev server (vite <8.3.3, via @astrojs/cloudflare, @astrojs/react and
+  # @cloudflare/vite-plugin). Also merges their copy with the one astro takes
+  vite: ^8.3.3
+  # CVE-2026-92708, GHSA-mcm9-63f2-9j32, GHSA-r9w8-h9r3-54w4, GHSA-x5rw-q4pp-hg5g (HIGH):
+  # devalue memory disclosure and DoS (devalue <5.9.3, via @astrojs/react). Scoped to the 5.x
+  # line, since astro takes devalue 6 and a bare key would pull it back
+  devalue@^5: ^5.9.3
