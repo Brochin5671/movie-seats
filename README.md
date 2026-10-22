@@ -21,6 +21,8 @@ word Capacity. Booking happens on Cineplex, through the link on the card.
 
 ## Running it
 
+Requires Node 24.22.1 or newer and pnpm 11+.
+
 You need a `CINEPLEX_API_KEY`. Cineplex runs no developer programme and issues no keys for
 one, so this project ships no value and will not tell you how to obtain one. Supply your
 own only if you are authorised to use it, and see [Status](#status) first. Whatever you
