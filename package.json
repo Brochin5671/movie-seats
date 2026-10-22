@@ -1,6 +1,6 @@
 {
   "name": "movie-seats",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "See which seats are still available for a Cineplex showtime before you book.",
   "license": "SEE LICENSE IN LICENSE",
   "private": true,

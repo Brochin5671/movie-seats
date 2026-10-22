@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 Releases are managed by [semantic-release](https://github.com/semantic-release/semantic-release) using the [conventionalcommits](https://www.conventionalcommits.org) preset; new entries are auto-generated from commit messages.
 
+## [1.0.1](https://github.com/Brochin5671/movie-seats/compare/v1.0.0...v1.0.1) (2026-10-22)
+
+### Fixes
+
+* **deps:** patch the HIGH and CRITICAL dependency advisories ([ba1ba21](https://github.com/Brochin5671/movie-seats/commit/ba1ba21516732396e96aef65add0dc8bf537c34e))
+* **deps:** require Node 24.22.1, the October 2026 security release ([af3a8b3](https://github.com/Brochin5671/movie-seats/commit/af3a8b3ebf4c50017bcf3aaefb126b49d2cb4fb7))
+
+### Documentation
+
+* license the source and drop the key-acquisition instructions ([0d8f776](https://github.com/Brochin5671/movie-seats/commit/0d8f776a28571762fb7a090ce6fd1986d1a9be9c))
+
 ## [1.0.0](https://github.com/Brochin5671/movie-seats/compare/v0.2.0...v1.0.0) (2026-08-04)
 
 ### ⚠ BREAKING CHANGES
